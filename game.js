@@ -172,6 +172,7 @@
         asset.loadAudio('gunfire', 'audio/gun.wav');
         asset.loadImage('arrow','image/arrow.png');
         asset.loadImage('player_front','image/pFront.gif');
+        asset.loadImage('backX','image/backX.jpg');
     });
 
     var introState = new Light.State(game);
@@ -264,7 +265,7 @@
         this.grounds = [];
         this.gameTime = Date.now();
 
-        this.addChild(new Light.Sprite(game.asset.getImage('back')));
+        this.addChild(new Light.Sprite(game.asset.getImage('backX')));
 
         this.grounds[0] = make_rigid(this,'g1',0,1100);
         this.grounds[1] = make_rigid(this,'g2',400,900);

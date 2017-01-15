@@ -476,6 +476,11 @@ Light.EntityContainer.prototype.addChild = function (child) {
     this.children.push(child);
 };
 
+Light.EntityContainer.prototype.addInxChild = function (inx,child) {
+    child.parent = this;
+    this.children.splice(inx,0,child);
+};
+
 Light.EntityContainer.prototype.removeChild = function (child) {
     this.children.splice(this.children.indexOf(child), 1);
 };
@@ -498,6 +503,10 @@ Light.Sprite = function (image) {
 
 Light.Sprite.prototype = Object.create(Light.EntityContainer.prototype);
 Light.Sprite.prototype.constructor = Light.Sprite;
+
+Light.Sprite.prototype.changeLoaded = function (game,img) {
+    this.texture = game.asset.getImage(img);
+};
 
 Light.Sprite.prototype.onRender = function (context) {
     context.drawImage(this.texture, 0, 0);

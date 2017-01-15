@@ -125,6 +125,20 @@
 	   return img == obj.sprite.texture.src.replace(/^.*\/(.*?)\..*$/,"$1");
     }
 
+    function change_sprite_inx(game, obj, img, inx){
+        obj.removeChild(obj.sprite);
+        obj.sprite = new Light.Sprite(game.asset.getImage(img));
+        obj.addInxChild(inx,obj.sprite);
+    }
+
+    function change_sprite(game, obj, img){
+        obj.removeChild(obj.sprite);
+        obj.sprite = new Light.Sprite(game.asset.getImage(img));
+        obj.addChild(obj.sprite);
+    }
+
+
+
     function pass_mine(mine){
     //        console.log('START|pass_mine');
     //        console.log(mine);
@@ -133,7 +147,7 @@
         //my_pos = pos;
     }
 
-    function add_bullet(){
+    function pass_bullet(){
         socket.emit('pass_my_bullet',1);
     }
 
@@ -166,12 +180,28 @@
         asset.loadImage('g1', 'image/ground1.png');
         asset.loadImage('g2', 'image/ground2.png');
         asset.loadImage('bullet', 'image/bullet.png');
-        asset.loadImage('weapon', 'image/weapon.png');
+        
+        asset.loadImage('gunR', 'image/p1/p1Onehand_R.png');
+        asset.loadImage('gunL', 'image/p1/p1Onehand_L.png');
+        asset.loadImage('gunTwo', 'image/p1/p1Twohand.png');
+        
         asset.loadImage('back', 'image/back.png');
         asset.loadImage('test','image/test.png');
         asset.loadAudio('gunfire', 'audio/gun.wav');
         asset.loadImage('arrow','image/arrow.png');
-        asset.loadImage('player_front','image/pFront.gif');
+        
+        asset.loadImage('p1Front','image/p1/p1Front.png');
+        asset.loadImage('p1Right','image/p1/p1Right.png');
+        asset.loadImage('p1Back','image/p1/p1Back.png');
+        asset.loadImage('p1Left','image/p1/p1Left.png');
+        
+        asset.loadImage('p1FrontW1','image/p1/p1FrontW1.png');
+        asset.loadImage('p1FrontW2','image/p1/p1FrontW2.png');
+        asset.loadImage('p1RightW','image/p1/p1RightW.png');
+        asset.loadImage('p1BackW1','image/p1/p1BackW1.png');
+        asset.loadImage('p1BackW2','image/p1/p1BackW2.png');
+        asset.loadImage('p1LeftW','image/p1/p1LeftW.png');
+        
         asset.loadImage('backX','image/backX.jpg');
     });
 
@@ -206,9 +236,9 @@
             this.sprite = new Light.Sprite(imgSrc);
             this.addChild(this.sprite);
             game.physics.add(this);
-            this.body.maxVelocity.x = speed;
-            this.body.maxVelocity.y = speed;
-            this.speed = speed;
+//            this.body.maxVelocity.x = speed;
+//            this.body.maxVelocity.y = speed;
+//            this.speed = speed;
 
             this.width = this.sprite.width;
             this.height = this.sprite.height;
@@ -216,16 +246,15 @@
     }
 
     class Player extends Unit {
-        constructor(img='player_front', mouse_key, key_up,key_right,key_down,key_left){
+        constructor(game,x,y,nickname,img='p1Front'){
             super(game.asset.getImage(img), 25);
-            this.body.friction.x = 0.95;
-            this.body.friction.y = 0.95;
+            this.x = x;
+            this.y = y;
+            this.textInit(game,nickname);
 
             this.weapon = new Weapon();
-            this.weapon.x = 10;
-            this.weapon.y = 17;
-            this.weapon.rotationCenter.x = 4;
-            this.weapon.rotationCenter.y = 5;
+            this.weapon.rotationCenter.x = 0;
+            this.weapon.rotationCenter.y = 16;
             this.addChild(this.weapon);
 
             this.bullets = [];
@@ -237,23 +266,337 @@
             this.weapon.scaleCenter.y = 5;
             this.hp = 300;
 
-            this.key_up = key_up || Light.Keyboard.W;
-            this.key_right= key_right || Light.Keyboard.D;
-            this.key_down= key_down || Light.Keyboard.S;
-            this.key_left= key_left || Light.Keyboard.A;
+            this.key_up = Light.Keyboard.W;
+            this.key_right= Light.Keyboard.D;
+            this.key_down= Light.Keyboard.S;
+            this.key_left= Light.Keyboard.A;
 
-            this.mouse_key= mouse_key || Light.Mouse.LEFT;
+            this.mouse_key= Light.Mouse.LEFT;
+        }
+        textInit(game,nick){
+            let player = this;
+            player.nickText = display_text(game.states.current,nick,0,0,"#fff","30px Dosis");
+            player.hpText = display_text(game.states.current,"",30,100,"#fff","30px Dosis");
+        }
+        
+        textFollow(){
+            let player = this;
+            player.hpText.x = player.x;
+            player.hpText.y = player.y+20;
+
+            player.nickText.x = player.x;
+            player.nickText.y = player.y-20;//플레이어 따라다니는 체력&닉네임
+
+        }
+        syncHpXY(){
+            let player = this;
+            if(toggle()){
+                pass_mine({x: player.x,
+                           y: player.y,
+                           rot: player.weapon.rotation,
+                           mousePos: game.camera.screenToLocal(game.input.mouse.position),
+                           hp:player.hp});
+            }// x,y,hp,각도 동기화
+        }
+        
+        init_Timers(game){
+            let player = this;
+        
+            if (this.leftTimer) game.timers.splice(game.timers.indexOf(this.leftTimer), 1);
+            if (this.rightTimer) game.timers.splice(game.timers.indexOf(this.rightTimer), 1);
+            if (this.backTimer) game.timers.splice(game.timers.indexOf(this.backTimer), 1);
+            if (this.frontTimer) game.timers.splice(game.timers.indexOf(this.frontTimer), 1);
+
+            this.leftTimer = new Light.Timer(game, 0.2, -1, ()=>{
+                this.frontTimer.pause();
+                this.rightTimer.pause();
+                this.backTimer.pause();  
+                
+                if(!checkImg(gameState.player,"p1LeftW")){
+                    change_sprite_inx(game, player,"p1LeftW",0);
+                   }else{
+                    change_sprite_inx(game, player,"p1Left",0);
+                   }
+            });
+
+            this.frontTimer = new Light.Timer(game, 0.2, -1, ()=>{
+                this.leftTimer.pause();
+                this.rightTimer.pause();
+                this.backTimer.pause();
+
+                if(!checkImg(gameState.player,"p1FrontW1")){
+                    change_sprite_inx(game, player,"p1FrontW1",0);
+                }else{
+                    change_sprite_inx(game, player,"p1FrontW2",0);
+                }
+            });
+
+            this.rightTimer = new Light.Timer(game, 0.2, -1, ()=>{
+                 this.leftTimer.pause();
+                 this.frontTimer.pause();
+                 this.backTimer.pause();
+
+                if(!checkImg(gameState.player,"p1RightW")){
+                    change_sprite_inx(game, player,"p1RightW",0);
+                }else{
+                    change_sprite_inx(game, player,"p1Right", 0);
+                }
+
+            });
+
+            this.backTimer = new Light.Timer(game, 0.2, -1, ()=>{
+                this.leftTimer.pause();
+                this.frontTimer.pause();
+                this.rightTimer.pause();
+
+                if(!checkImg(gameState.player,"p1BackW1")){
+                    change_sprite(game, player,"p1BackW1");
+                }else{
+                    change_sprite(game, player,"p1BackW2");
+                }
+
+            });
+
+            this.backTimer.start();
+            this.rightTimer.start();
+            this.frontTimer.start();
+            this.leftTimer.start();
+
+            this.backTimer.pause();
+            this.rightTimer.pause();
+            this.frontTimer.pause();
+            this.leftTimer.pause();
+        }
+        
+        mineHpChange(){
+            let player = this;
+            //HP 처리
+            if(player.hp !== mine_hp){
+                player.hpText.alpha = 1;
+                game.camera.shake(0.1, 3, 15, 15);
+                player.hp = mine_hp;
+            }
+
+            if (player.hp <= 0) {
+                player.hp = 0;
+                game.camera.removeChild(player.hpText);
+                game.states.change('end');
+            }
+
+            else if (player.hp < 90) player.hpText.fillStyle = '#f00';
+            else if (player.hp < 180) player.hpText.fillStyle = '#ffba00';
+            else player.hpText.fillStyle = '#fff';// HP관련
+            
+            player.hpText.text = 'HP ' + ((player.hp / 300) * 100).toFixed(2) + '%';
+            player.hpText.alpha += (0.4 - player.hpText.alpha) / 15;
+        }
+        
+        otherHpChange(){
+            let player = this;
+            if (player.hp <= 0) {
+                player.hp = 0;
+                game.camera.removeChild(player.hpText);
+                game.states.change('end');
+            }else if (player.hp < 90) player.hpText.fillStyle = '#f00';
+            else if (player.hp < 180) player.hpText.fillStyle = '#ffba00';// HP관련
+            else player.hpText.fillStyle = '#fff';// HP관련   
+            
+            player.hpText.text = 'HP ' + ((player.hp / 300) * 100).toFixed(2) + '%';
+            player.hpText.alpha += (0.4 - player.hpText.alpha) / 15;
+        }
+        
+        faceMouse(game){
+            let player = this;
+            let localMousePos = game.camera.screenToLocal(game.input.mouse.position);
+            let mouseRot = player.getBounds().getCenter().getRotation(localMousePos);// 무기 위치&각도
+            this.faceSomething(game,mouseRot);
+        }
+        
+        faceSomething(game,someRot){
+            let player = this;
+            let w = player.weapon;
+            w.x = 17 ;
+            w.y = 20 ;
+            w.rotation = someRot;
+            
+            if (w.isRightFaced()) {
+                    w.changeLoaded(game,'gunR');
+                    if(player.walkState != "stop"){
+                        this.rightTimer.resume();
+                    }else{
+                        this.rightTimer.pause();
+                        change_sprite_inx(game, player,"p1Right",0);
+                    }
+                }else if (w.isFrontFaced()) {
+                    w.changeLoaded(game,'gunTwo');
+                    if(player.walkState != "stop"){
+                        this.frontTimer.resume();
+                    }else{
+                        this.frontTimer.pause();
+                        change_sprite_inx(game, player,"p1Front",0);
+                    }
+                }else if (w.isBackFaced()) {
+                    w.changeLoaded(game,'gunTwo');
+                    if(player.walkState != "stop"){
+                        this.backTimer.resume();
+                    }else{
+                        this.backTimer.pause();
+                        change_sprite(game, player,"p1Back");
+                    }
+                }else {
+                    w.changeLoaded(game,'gunL');
+                    if(player.walkState != "stop"){
+                        this.leftTimer.resume();
+                    }else{
+                        this.leftTimer.pause();
+                        change_sprite_inx(game, player,"p1Left",0);
+                    }
+                }//마우스에 따른 무기&캐릭터 방향 설정
+        }
+        
+        keyControl(game){
+            let player = this;
+            player.walkState = "stop";
+                if (game.input.keyboard.isPressed(player.key_left)) {
+                    player.walkState = "left";
+                    player.x -= 5;
+                    //player.body.velocity.x -= player.speed * elapsed;
+                }
+                if (game.input.keyboard.isPressed(player.key_right)) {
+                    player.walkState = "right";
+                    player.x += 5;
+                    //player.body.velocity.x += player.speed * elapsed;
+                }
+                if (game.input.keyboard.isPressed(player.key_up)) {
+                    player.walkState = "up";
+                    player.y -= 5;
+                    //player.body.velocity.y -= player.speed * elapsed;
+                }
+                if (game.input.keyboard.isPressed(player.key_down)) {
+                    player.walkState = "down";
+                    player.y += 5;
+
+                }//키보드 상하좌우 입력
+        }
+        
+        bulletControlByClick(game){
+            let player = this;
+            let w = player.weapon;
+            //bullet 처리
+            if (game.input.mouse.isPressed(player.mouse_key) && (gameState.gameTime - w.lastShootTime) > w.shootDelay) {  
+                this.createBullet2MouseRot(game);
+                game.camera.shake(0.1, 1, 10, 10);
+                var sound = game.asset.getAudio('gunfire');
+                sound.currentTime = 0;
+                sound.volume = 0.3;
+                sound.play();
+                
+                pass_bullet();
+            }//총알 발사
+        }
+        
+        bulletControlBySocket(game,mouseRot){
+            for(var b_cnt = get_bullet_cnt();b_cnt>0;b_cnt--){
+                this.createBullet2MouseRot(game,mouseRot);
+            }
+        }
+        
+        createBullet2MouseRot(game, localMousePos = game.camera.screenToLocal(game.input.mouse.position)){
+            let player = this;
+            let w = player.weapon;
+
+            
+            let b = new Light.Sprite(game.asset.getImage('bullet'));
+            b.rotationCenter= new Light.Point(0,5);
+            let bOneHandYOffset = -24;
+            let bTwoHandYOffset = -15;
+
+            if (w.isRightFaced()) {//right
+                b.rotation = player.getBounds().getCenter().offset(0,bOneHandYOffset).getRotation(localMousePos);
+                b.position = player.getBounds().getCenter().offset(Math.cos(b.rotation) * 27, Math.sin(b.rotation) * 27);
+                b.position.offset(0,bOneHandYOffset);
+
+            }else if (w.isFrontFaced()) {//front
+                b.rotation = player.getBounds().getCenter().offset(0,bTwoHandYOffset).getRotation(localMousePos);
+                b.position = player.getBounds().getCenter().offset(Math.cos(b.rotation) * 27, Math.sin(b.rotation) * 27);
+                b.position.offset(0,bTwoHandYOffset);
+            }
+            else if (w.isBackFaced()) {//back
+                b.rotation = player.getBounds().getCenter().offset(0,bTwoHandYOffset).getRotation(localMousePos);
+                b.position = player.getBounds().getCenter().offset(Math.cos(b.rotation) * 27, Math.sin(b.rotation) * 27);
+                b.position.offset(0,bTwoHandYOffset);
+            }
+            else {//left
+                b.rotation = player.getBounds().getCenter().offset(0,bOneHandYOffset).getRotation(localMousePos);
+                b.position = player.getBounds().getCenter().offset(Math.cos(b.rotation) * 27, Math.sin(b.rotation) * 27);
+                b.position.offset(0,bOneHandYOffset);
+            }
+            w.position.offset(-Math.cos(b.rotation) * 5, -Math.sin(b.rotation) * 5);
+            w.lastShootTime = Date.now();
+            b.speed = 1500;
+            player.bullets.push(b);
+            game.states.current.addChild(b);
+        }
+        
+        renderBullet(elapsed){
+            let player = this;
+            for (var i = 0; i < player.bullets.length; i++) {
+                var bullet = player.bullets[i];
+
+                bullet.x += Math.cos(bullet.rotation) * bullet.speed * elapsed;
+                bullet.y += Math.sin(bullet.rotation) * bullet.speed * elapsed;
+
+                game.states.current.grounds.forEach((ground,inx)=>{
+                if(coll_check(ground, bullet)){
+                        player.bullets.removeEle(bullet);
+                        game.states.current.removeChild(bullet);
+                    }
+                });
+
+                if (!bullet.getBounds().intersects(game.states.current.gameArea)){
+                    player.bullets.removeEle(bullet);
+                    game.states.current.removeChild(bullet);
+                }
+
+            } //총알 충돌 처리 
+        }
+        colWithBulletCheck(other){
+            let player = this;
+            for (var i = 0; i < player.bullets.length; i++) {
+                var bullet = player.bullets[i];
+                if(bullet.getBounds().intersects(other.getBounds())){
+                    //console.log("other 맞음 collide");
+                    other.hp--;
+                    other.hpText.alpha = 1;
+                    pass_his_hp(other.hp);
+                }
+            }
         }
     }
 
 
-    Weapon = function () {
-        Light.Sprite.call(this, game.asset.getImage('weapon'));
-        this.shootDelay = 50;
-        this.lastShootTime = Date.now();
+    class Weapon extends Light.Sprite{
+        constructor(){
+            super(game.asset.getImage('gunR'));
+            this.shootDelay = 50;
+            this.lastShootTime = Date.now();
+        }
+        
+        isLeftFaced(){
+	           return Light.degToRad(-135) < this.rotation && this.rotation < Light.degToRad(135);
+        };
+        isRightFaced(){
+                return Light.degToRad(-45) < this.rotation && this.rotation < Light.degToRad(45);
+        };
+        isFrontFaced(){
+                return Light.degToRad(45) < this.rotation && this.rotation < Light.degToRad(135);
+        };
+        isBackFaced(){
+                return Light.degToRad(-135) < this.rotation && this.rotation < Light.degToRad(-45);
+        };
+
+        
     };
-    Weapon.prototype = Object.create(Light.Sprite.prototype);
-    Weapon.prototype.constructor = Weapon;
 
     gameState.onInit = function () {
         game.input.keyboard.keyCapturing = [Light.Keyboard.A, Light.Keyboard.D, Light.Keyboard.W,Light.Keyboard.S, Light.Keyboard.CONTROL, Light.Keyboard.ALTERNATE, Light.Keyboard.ESCAPE,
@@ -286,20 +629,17 @@
         this.addChild(this.mousePointer);
 
         this.pointerCenter = new Light.Sprite('image/pointer_center.png');
+        this.pointerCenter.alpha=0;
         this.addChild(this.pointerCenter);
 
         //내 플레이어 처리
-        this.player = new Player();
-        this.player.x = 100;
-        this.player.y = 400;
+        this.player = new Player(game,100,400,nickname);
         this.unitLayer.addChild(this.player);
-
-        this.player.nickText = display_text(this,nickname,0,0,"#fff","30px Dosis");
-        this.player.hpText = display_text(this,"",30,100,"#fff","30px Dosis");
+        this.player.init_Timers(game);
         //내 플레이어 처리End
 
         //카메라 처리
-        game.camera.smoothFollow = 5;
+        game.camera.smoothFollow = 2;
         game.camera.smoothZoom = 5;
         game.camera.follow(this.pointerCenter, new Light.Point(0, 0));
 
@@ -308,83 +648,16 @@
         //카메라 처리End
 
         //other 처리
-        this.otherPs[0] = new Player('arrow');
-        this.otherPs[0].x = 600;
-        this.otherPs[0].y = 400;
+        this.otherPs[0] = new Player(game,600,400,"test0354");
         this.unitLayer.addChild(this.otherPs[0]);
-
-        this.otherPs[0].hpText = display_text(this,"",800,100,"#fff","30px Dosis");
-        this.otherPs[0].nickText = display_text(this,"test",0,0,"#fff","30px Dosis");
+        this.otherPs[0].init_Timers(game);
         //other 처리END
-
-        if (this.leftTimer) game.timers.splice(game.timers.indexOf(this.leftTimer), 1);
-        if (this.rightTimer) game.timers.splice(game.timers.indexOf(this.rightTimer), 1);
-        if (this.backTimer) game.timers.splice(game.timers.indexOf(this.backTimer), 1);
-        if (this.frontTimer) game.timers.splice(game.timers.indexOf(this.frontTimer), 1);
-
-        this.leftTimer = new Light.Timer(game, 0.2, -1, ()=>{
-            if(!checkImg(gameState.player,"pLeftW")){
-		      gameState.player.sprite.texture.src = "image/pLeftW.png";
-	       }else{
-		      gameState.player.sprite.texture.src = "image/pLeft.gif";
-	       }
-             this.frontTimer.pause();
-             this.rightTimer.pause();
-             this.backTimer.pause();
-        });
-
-        this.frontTimer = new Light.Timer(game, 0.2, -1, ()=>{
-             this.leftTimer.pause();
-             this.rightTimer.pause();
-             this.backTimer.pause();
-
-            if(!checkImg(gameState.player,"pFront1")){
-                gameState.player.sprite.texture.src = "image/pFront1.png";
-            }else{
-                gameState.player.sprite.texture.src = "image/pFront2.png";
-            }
-        });
-
-        this.rightTimer = new Light.Timer(game, 0.2, -1, ()=>{
-             this.leftTimer.pause();
-             this.frontTimer.pause();
-             this.backTimer.pause();
-
-            if(!checkImg(gameState.player,"pRightW")){
-                gameState.player.sprite.texture.src = "image/pRightW.png";
-            }else{
-                gameState.player.sprite.texture.src = "image/pRight.gif";
-            }
-
-        });
-
-        this.backTimer = new Light.Timer(game, 0.2, -1, ()=>{
-            this.leftTimer.pause();
-             this.frontTimer.pause();
-             this.rightTimer.pause();
-
-            if(!checkImg(gameState.player,"pBack1")){
-                gameState.player.sprite.texture.src = "image/pBack1.png";
-            }else{
-                gameState.player.sprite.texture.src = "image/pBack2.png";
-            }
-
-
-        });
-
-        this.backTimer.start();
-        this.rightTimer.start();
-        this.frontTimer.start();
-        this.leftTimer.start();
-
-        this.backTimer.pause();
-        this.rightTimer.pause();
-        this.frontTimer.pause();
-        this.leftTimer.pause();
-
+        
     };
 
     gameState.onUpdate = function (elapsed) {
+        this.gameTime = Date.now();
+        
         var localMousePos = game.camera.screenToLocal(game.input.mouse.position);
         this.mousePointer.x = (localMousePos.x-25);
         this.mousePointer.y = (localMousePos.y-25);
@@ -394,237 +667,34 @@
 
         let player = this.player;
         let otherPs = this.otherPs;
+        player.textFollow();
+        player.mineHpChange();
+        
 
-        player.hpText.x = player.x;
-        player.hpText.y = player.y+20;
+        //내 player  처리
+        player.faceMouse(game);
+        player.keyControl(game);
+        player.syncHpXY();
 
-        player.nickText.x = player.x;
-        player.nickText.y = player.y-20;//플레이어 따라다니는 체력&닉네임
-
-        //HP 처리
-        if(player.hp !== mine_hp){
-            player.hpText.alpha = 1;
-            game.camera.shake(0.1, 3, 15, 15);
-            player.hp = mine_hp;
-        }
-
-        if (player.hp <= 0) {
-            player.hp = 0;
-            game.camera.removeChild(player.hpText);
-            game.states.change('end');
-        }
-
-        else if (player.hp < 90) player.hpText.fillStyle = '#f00';
-        else if (player.hp < 180) player.hpText.fillStyle = '#ffba00';
-        //HP 처리 END
-
-            //내 player  처리
-                let w = player.weapon;
-                w.x += (10 - w.x) / 3;
-                w.y += (17 - w.y) / 3;
-                w.rotation = player.getBounds().getCenter().getRotation(localMousePos);// 무기 위치&각도
-
-                let TOG = new toggler(3);
-                if (Light.degToRad(-45) < w.rotation && w.rotation < Light.degToRad(45)) {
-                    if(player.walkState != "stop"){
-                        this.rightTimer.resume();
-                    }else{
-                        this.rightTimer.pause();
-                        player.sprite.texture.src = "image/pRight.gif";
-                    }
-                    w.scale.y = 1;
-                }else if (Light.degToRad(45) < w.rotation && w.rotation < Light.degToRad(135)) {
-                    if(player.walkState != "stop"){
-                        this.frontTimer.resume();
-                    }else{
-                        this.frontTimer.pause();
-                        player.sprite.texture.src = "image/pFront.gif";
-                    }
-                    w.scale.y = -1;
-                }else if (Light.degToRad(-135) < w.rotation && w.rotation < Light.degToRad(135)) {
-                    if(player.walkState != "stop"){
-                        this.backTimer.resume();
-                    }else{
-                        this.backTimer.pause();
-                        player.sprite.texture.src = "image/pBack.gif";
-                    }
-                    w.scale.y = -1;
-                }else {
-                    if(player.walkState != "stop"){
-                        this.leftTimer.resume();
-                    }else{
-                        this.leftTimer.pause();
-                        player.sprite.texture.src = "image/pLeft.gif";
-                    }
-                    w.scale.y = -1;
-                }//마우스에 따른 무기&캐릭터 방향 설정
-
-                player.walkState = "stop";
-                if (game.input.keyboard.isPressed(player.key_left)) {
-                    player.walkState = "left";
-                    player.x -= 5;
-                    //player.body.velocity.x -= player.speed * elapsed;
-                }
-                if (game.input.keyboard.isPressed(player.key_right)) {
-                    player.walkState = "right";
-                    player.x += 5;
-                    //player.body.velocity.x += player.speed * elapsed;
-                }
-                if (game.input.keyboard.isPressed(player.key_up)) {
-                    player.walkState = "up";
-                    player.y -= 5;
-                    //player.body.velocity.y -= player.speed * elapsed;
-                }
-                if (game.input.keyboard.isPressed(player.key_down)) {
-                    player.walkState = "down";
-                    player.y += 5;
-
-                }//키보드 상하좌우 입력
-                if(toggle()){
-                    pass_mine({x: player.x,
-                               y: player.y,
-                               rot: player.weapon.rotation,
-                               hp:player.hp});
-                }// x,y,hp,각도 동기화
-
-                //bullet 처리
-                if (game.input.mouse.isPressed(player.mouse_key) && (this.gameTime - w.lastShootTime) > w.shootDelay) {
-                    var b = new Light.Sprite(game.asset.getImage('bullet'));
-                    b.rotation = w.rotation;
-                    //b.rotationCenter.y = -20;
-                    b.position = player.getBounds().getCenter().offset(Math.cos(b.rotation) * 30, Math.sin(b.rotation) * 30);
-                    b.position.x = b.position.x+ 0;
-                    b.position.y = b.position.y- 20;
-
-                    b.speed = 1500;
-                    w.lastShootTime = Date.now();
-                    w.position.offset(-Math.cos(b.rotation) * 5, -Math.sin(b.rotation) * 5);
-                    game.camera.shake(0.1, 1, 10, 10);
-                    var sound = game.asset.getAudio('gunfire');
-                    sound.currentTime = 0;
-                    sound.volume = 0.3;
-                    sound.play();
-                    player.bullets.push(b);
-                    this.addChild(b);
-                    add_bullet();
-                }//총알 발사
-                for (var i = 0; i < player.bullets.length; i++) {
-                    var bullet = player.bullets[i];
-
-                    bullet.x += Math.cos(bullet.rotation) * bullet.speed * elapsed;
-                    bullet.y += Math.sin(bullet.rotation) * bullet.speed * elapsed;
+        player.bulletControlByClick(game,gameState,localMousePos);
+        player.renderBullet(elapsed);
+        player.colWithBulletCheck(otherPs[0]);
+        //내 player 처리END
 
 
-                    if(bullet.getBounds().intersects(otherPs[0].getBounds())){
-                        //console.log("other 맞음 collide");
-                        otherPs[0].hp--;
-                        otherPs[0].hpText.alpha = 1;
-                        pass_his_hp(otherPs[0].hp);
-                    }
+        //other 처리
+        otherPs[0].x = his.x;
+        otherPs[0].y = his.y;
+        otherPs[0].weapon.rotation = his.rot;
 
-                    gameState.grounds.forEach((ground,inx)=>{
-                    if(coll_check(ground, bullet)){
-                            player.bullets.removeEle(bullet);
-                            this.removeChild(bullet);
-                        }
-                    });
+        otherPs[0].textFollow();
+        otherPs[0].otherHpChange();
 
-                    if (!bullet.getBounds().intersects(this.gameArea)){
-                        player.bullets.removeEle(bullet);
-                        this.removeChild(bullet);
-                    }
+        otherPs[0].faceSomething(game,his.rot);
+        otherPs[0].bulletControlBySocket(game,his.mousePos);
 
-                } //총알 충돌 처리
-                //bullet 처리 END
-            //내 player 처리END
-
-
-            //other 처리
-                otherPs[0].x = his.x;
-                otherPs[0].y = his.y;
-                otherPs[0].weapon.rotation = his.rot;
-
-
-                otherPs[0].hpText.x = otherPs[0].x;
-                otherPs[0].hpText.y = otherPs[0].y+20;
-
-                otherPs[0].nickText.x = otherPs[0].x;
-                otherPs[0].nickText.y = otherPs[0].y-20;//플레이어 따라다니는 체력&닉네임
-
-
-                if (otherPs[0].hp <= 0) {
-                    otherPs[0].hp = 0;
-                    game.camera.removeChild(otherPs[0].hpText);
-                    game.states.change('end');
-                }
-
-                else if (otherPs[0].hp < 90) otherPs[0].hpText.fillStyle = '#f00';
-                else if (otherPs[0].hp < 180) otherPs[0].hpText.fillStyle = '#ffba00';// HP관련
-
-                this.gameTime = Date.now();
-                player.hpText.text = 'HP ' + ((player.hp / 300) * 100).toFixed(2) + '%';
-                otherPs[0].hpText.text= 'HP ' + ((otherPs[0].hp / 300) * 100).toFixed(2) + '%';
-
-                player.hpText.alpha += (0.4 - player.hpText.alpha) / 15;
-                otherPs[0].hpText.alpha += (0.4 - otherPs[0].hpText.alpha) / 15;//HP 관련
-
-
-                let w_his = otherPs[0].weapon;
-                w_his.x += (10 - w_his.x) / 3;
-                w_his.y += (17 - w_his.y) / 3; // 무기 위치
-
-                if (w_his.rotation > Light.degToRad(-90) && w_his.rotation < Light.degToRad(90)) {
-                    otherPs[0].sprite.scale.x = 1;
-                    w_his.scale.y = 1;
-                }
-                else {
-                    otherPs[0].sprite.scale.x = -1;
-                    w_his.scale.y = -1;
-                } // 마우스 포인터 방향에 따라서
-                //bullet 처리
-                for(var b_cnt = get_bullet_cnt();b_cnt>0;b_cnt--){
-                    var b = new Light.Sprite(game.asset.getImage('bullet'));
-                    b.rotation = w_his.rotation;
-                    b.rotationCenter.y = 5;
-
-                    b.position = otherPs[0].getBounds().getCenter().offset(Math.cos(b.rotation) * 30, Math.sin(b.rotation) * 30);
-                    b.speed = 1500;
-
-                    w_his.lastShootTime = Date.now();
-                    w_his.position.offset(-Math.cos(b.rotation) * 5, -Math.sin(b.rotation) * 5);
-
-                    //game.camera.shake(0.1, 1, 10, 10);
-
-                    var sound = game.asset.getAudio('gunfire');
-                    sound.currentTime = 0;
-                    sound.volume = 0.3;
-                    sound.play();
-
-                    otherPs[0].bullets.push(b);
-                    this.addChild(b);
-                }//총알 발사
-                for (var i = 0; i < otherPs[0].bullets.length; i++) {
-                    var bullet = otherPs[0].bullets[i];
-
-                    bullet.x += Math.cos(bullet.rotation) * bullet.speed * elapsed;
-                    bullet.y += Math.sin(bullet.rotation) * bullet.speed * elapsed;
-
-                    gameState.grounds.forEach((ground,inx)=>{
-                    if(coll_check(ground, bullet)){
-                            otherPs[0].bullets.removeEle(bullet);
-                            this.removeChild(bullet);
-                        }
-                    });
-
-                    if (!bullet.getBounds().intersects(this.gameArea)){
-                        otherPs[0].bullets.removeEle(bullet);
-                        this.removeChild(bullet);
-                        bullet = null;
-                    }
-
-                }//총알 충돌 처리
-                //bullet 처리 END
-            //other 처리END
+        otherPs[0].renderBullet(elapsed);
+        //other 처리END
 
 
         };

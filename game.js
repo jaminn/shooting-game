@@ -2,9 +2,16 @@
 
     let isStarted = false;
 
-    let his = {x:300,y:300,rot:0};
+    let his={x: 0,y: 0,rot: 0,
+    mousePos:new Light.Point(0,0),
+    hp:300};
+
+    let his_past={x: 0,y: 0,rot: 0,
+    mousePos:new Light.Point(0,0),
+    hp:300};
+
+    let NoEmittedCnt = 0;
     let mine_hp = 300;
-    let his_bullet;
     let nickname;
 
     let preStart_interval;
@@ -68,12 +75,13 @@
     });
 
 
-
     socket.on('get_his', (data) =>{
     //        console.log('START|ONget_his');
     //        console.log(data);
     //        console.log('END|ONget_his');
+        his_past =  clone(his);
         his = data;
+        NoEmittedCnt = 0;
     });
 
     socket.on('get_my_hp', (data) =>{
@@ -82,10 +90,17 @@
 //        console.log('END|ONget_my_hp');
         mine_hp = data;
     });
-
-    socket.on('get_his_bullet', (data)=>{
-        his_bullet = data;
+    
+    let his_wait_cnt = 0;
+    socket.on('get_his_bullet',(data)=>{
+        his_wait_cnt = data;
     });
+
+    function get_bullet_cnt(){
+        var cnt = his_wait_cnt;
+        his_wait_cnt = 0;
+        return cnt;
+    }
 
     function display_text(my_game,text="test",x=300, y=300,fillStyle="#fff",font="50px Dosis"){
         let label;
@@ -158,22 +173,48 @@
         socket.emit('pass_his_hp',hp);
     }
 
-    let his_wait_cnt = 0;
-    socket.on('get_his_bullet',(data)=>{
-        his_wait_cnt = data;
-    });
+    function clone(obj) {
+    var copy;
 
-    function get_bullet_cnt(){
-        var cnt = his_wait_cnt;
-        his_wait_cnt = 0;
-        return cnt;
+    // Handle the 3 simple types, and null or undefined
+    if (null == obj || "object" != typeof obj) return obj;
+
+    // Handle Date
+    if (obj instanceof Date) {
+        copy = new Date();
+        copy.setTime(obj.getTime());
+        return copy;
     }
 
+    // Handle Array
+    if (obj instanceof Array) {
+        copy = [];
+        for (var i = 0, len = obj.length; i < len; i++) {
+            copy[i] = clone(obj[i]);
+        }
+        return copy;
+    }
+
+    // Handle Object
+    if (obj instanceof Object) {
+        copy = {};
+        for (var attr in obj) {
+            if (obj.hasOwnProperty(attr)) copy[attr] = clone(obj[attr]);
+        }
+        return copy;
+    }
+
+    throw new Error("Unable to copy obj! Its type isn't supported.");
+}
+    
     Array.prototype.removeEle = function(ele) {
         this.splice(this.indexOf(ele), 1);
     }
-
+    
+    var testMap = new MapMaker("map",testingMap);
+    
     var game = new Light.Game('game', 1100, 600, '#004A7B', function (asset) {
+        testMap.loadAll(asset);
         asset.loadImage('e1', 'image/enemy1.png');
         asset.loadImage('e2', 'image/enemy2.png');
         asset.loadImage('player', 'image/player.png');
@@ -216,8 +257,8 @@
         game.camera.children = [];
 
         this.addChild(new Light.Sprite(game.asset.getImage('back')));
-        display_text(this,"동팡이",40,300,"#f0f","100px Dosis");
-        display_text(this,"기다리셈",40,400,"#fff","30px Dosis");
+        display_text(this,"동팡 앗!",40,300,"#00f","100px Dosis");
+        display_text(this,"창을 두개 이상 띄우셈",40,400,"#fff","30px Dosis");
 
         if(!start_interval){
             start_interval = setInterval(()=>{
@@ -238,7 +279,7 @@
             game.physics.add(this);
 //            this.body.maxVelocity.x = speed;
 //            this.body.maxVelocity.y = speed;
-//            this.speed = speed;
+            this.speed = speed;
 
             this.width = this.sprite.width;
             this.height = this.sprite.height;
@@ -247,7 +288,7 @@
 
     class Player extends Unit {
         constructor(game,x,y,nickname,img='p1Front'){
-            super(game.asset.getImage(img), 25);
+            super(game.asset.getImage(img), 500);
             this.x = x;
             this.y = y;
             this.textInit(game,nickname);
@@ -301,42 +342,43 @@
         
         init_Timers(game){
             let player = this;
+            let timerSpeed = 0.1;
         
             if (this.leftTimer) game.timers.splice(game.timers.indexOf(this.leftTimer), 1);
             if (this.rightTimer) game.timers.splice(game.timers.indexOf(this.rightTimer), 1);
             if (this.backTimer) game.timers.splice(game.timers.indexOf(this.backTimer), 1);
             if (this.frontTimer) game.timers.splice(game.timers.indexOf(this.frontTimer), 1);
 
-            this.leftTimer = new Light.Timer(game, 0.2, -1, ()=>{
+            this.leftTimer = new Light.Timer(game, timerSpeed, -1, ()=>{
                 this.frontTimer.pause();
                 this.rightTimer.pause();
                 this.backTimer.pause();  
                 
-                if(!checkImg(gameState.player,"p1LeftW")){
+                if(!checkImg(player,"p1LeftW")){
                     change_sprite_inx(game, player,"p1LeftW",0);
                    }else{
                     change_sprite_inx(game, player,"p1Left",0);
                    }
             });
 
-            this.frontTimer = new Light.Timer(game, 0.2, -1, ()=>{
+            this.frontTimer = new Light.Timer(game, timerSpeed, -1, ()=>{
                 this.leftTimer.pause();
                 this.rightTimer.pause();
                 this.backTimer.pause();
 
-                if(!checkImg(gameState.player,"p1FrontW1")){
+                if(!checkImg(player,"p1FrontW1")){
                     change_sprite_inx(game, player,"p1FrontW1",0);
                 }else{
                     change_sprite_inx(game, player,"p1FrontW2",0);
                 }
             });
 
-            this.rightTimer = new Light.Timer(game, 0.2, -1, ()=>{
+            this.rightTimer = new Light.Timer(game, timerSpeed, -1, ()=>{
                  this.leftTimer.pause();
                  this.frontTimer.pause();
                  this.backTimer.pause();
 
-                if(!checkImg(gameState.player,"p1RightW")){
+                if(!checkImg(player,"p1RightW")){
                     change_sprite_inx(game, player,"p1RightW",0);
                 }else{
                     change_sprite_inx(game, player,"p1Right", 0);
@@ -344,12 +386,12 @@
 
             });
 
-            this.backTimer = new Light.Timer(game, 0.2, -1, ()=>{
+            this.backTimer = new Light.Timer(game, timerSpeed, -1, ()=>{
                 this.leftTimer.pause();
                 this.frontTimer.pause();
                 this.rightTimer.pause();
 
-                if(!checkImg(gameState.player,"p1BackW1")){
+                if(!checkImg(player,"p1BackW1")){
                     change_sprite(game, player,"p1BackW1");
                 }else{
                     change_sprite(game, player,"p1BackW2");
@@ -454,29 +496,89 @@
                 }//마우스에 따른 무기&캐릭터 방향 설정
         }
         
-        keyControl(game){
+        keyControl(game,pre_elapsed){
             let player = this;
+            let elapsed
+            if(pre_elapsed > 0.05){
+                elapsed = 0.05;
+            }else{
+                elapsed = pre_elapsed;
+            }
+            //console.log("elapsed :"+elapsed)
             player.walkState = "stop";
                 if (game.input.keyboard.isPressed(player.key_left)) {
                     player.walkState = "left";
-                    player.x -= 5;
+                    player.x -= player.speed * elapsed;
                     //player.body.velocity.x -= player.speed * elapsed;
                 }
                 if (game.input.keyboard.isPressed(player.key_right)) {
                     player.walkState = "right";
-                    player.x += 5;
+                    player.x += player.speed * elapsed;
                     //player.body.velocity.x += player.speed * elapsed;
                 }
                 if (game.input.keyboard.isPressed(player.key_up)) {
                     player.walkState = "up";
-                    player.y -= 5;
+                    player.y -= player.speed * elapsed;
                     //player.body.velocity.y -= player.speed * elapsed;
                 }
                 if (game.input.keyboard.isPressed(player.key_down)) {
                     player.walkState = "down";
-                    player.y += 5;
+                    player.y += player.speed * elapsed;
 
                 }//키보드 상하좌우 입력
+        }
+        
+        getSocketedXYRot(elapsed){
+            let player = this;
+            if(NoEmittedCnt == 0){
+                player.weapon.rotation = his.rot;
+                if(player.x != his.x || player.y != his.y){
+                    player.x = his.x;
+                    player.y = his.y;
+                    player.walkState = "move";
+                }else{
+                    player.walkState = "stop";
+                }
+                NoEmittedCnt = 1;
+            }else{
+                if(NoEmittedCnt != 0 && NoEmittedCnt <= 3){
+                    let x_move = his.x-his_past.x;
+                    let y_move = his.y-his_past.y;
+                    if(x_move>0 && y_move>0){
+                        player.x += player.speed * elapsed;
+                        player.y += player.speed * elapsed;
+                        player.walkState = "move";
+                    }else if(x_move<0 && y_move>0){
+                        player.x -= player.speed * elapsed;
+                        player.y += player.speed * elapsed;
+                        player.walkState = "move";
+                    }else if(x_move>0 && y_move<0){
+                        player.x += player.speed * elapsed;
+                        player.y -= player.speed * elapsed;
+                        player.walkState = "move";
+                    }else if(x_move<0 && y_move<0){
+                        player.x -= player.speed * elapsed;
+                        player.y -= player.speed * elapsed;
+                        player.walkState = "move";
+                    }else if(x_move == 0 && y_move<0){
+                        player.y -= player.speed * elapsed;
+                        player.walkState = "move";
+                    }else if(x_move == 0 && y_move>0){
+                        player.y += player.speed * elapsed;
+                        player.walkState = "move";
+                    }else if(x_move > 0 && y_move==0){
+                        player.x += player.speed * elapsed;
+                        player.walkState = "move";
+                    }else if(x_move < 0 && y_move==0){
+                        player.x -= player.speed * elapsed;
+                        player.walkState = "move";
+                    }else{
+                        player.walkState = "stop";
+                    }
+                    
+                    NoEmittedCnt++;
+                }
+            }
         }
         
         bulletControlByClick(game){
@@ -547,7 +649,7 @@
                 bullet.y += Math.sin(bullet.rotation) * bullet.speed * elapsed;
 
                 game.states.current.grounds.forEach((ground,inx)=>{
-                if(coll_check(ground, bullet)){
+                if(ground.getBounds().contains(bullet.getBounds().getCenter())){
                         player.bullets.removeEle(bullet);
                         game.states.current.removeChild(bullet);
                     }
@@ -594,8 +696,6 @@
         isBackFaced(){
                 return Light.degToRad(-135) < this.rotation && this.rotation < Light.degToRad(-45);
         };
-
-        
     };
 
     gameState.onInit = function () {
@@ -607,17 +707,19 @@
         this.enemies = [];
         this.grounds = [];
         this.gameTime = Date.now();
+        
+        testMap.renderMap(game,3,500);
+        this.grounds = testMap.myMaps;
+        //this.addChild(new Light.Sprite(game.asset.getImage('backX')));
 
-        this.addChild(new Light.Sprite(game.asset.getImage('backX')));
-
-        this.grounds[0] = make_rigid(this,'g1',0,1100);
-        this.grounds[1] = make_rigid(this,'g2',400,900);
-        this.grounds[2] = make_rigid(this,'g2',60,700);
-        this.grounds[3] = make_rigid(this,'g2',600,700);
-        this.grounds[4] = make_rigid(this,'g2', 800, 850);
-        this.grounds[4].width = 100;
-        this.grounds[5] = make_rigid(this,'g2',1400,900);
-        this.grounds[5].width = 500;
+//        this.grounds[0] = make_rigid(this,'g1',0,1100);
+//        this.grounds[1] = make_rigid(this,'g2',400,900);
+//        this.grounds[2] = make_rigid(this,'g2',60,700);
+//        this.grounds[3] = make_rigid(this,'g2',600,700);
+//        this.grounds[4] = make_rigid(this,'g2', 800, 850);
+//        this.grounds[4].width = 100;
+//        this.grounds[5] = make_rigid(this,'g2',1400,900);
+//        this.grounds[5].width = 500;
 
         this.lightSprite = new Light.Sprite('image/light.png');
         this.addChild(this.lightSprite);
@@ -631,13 +733,7 @@
         this.pointerCenter = new Light.Sprite('image/pointer_center.png');
         this.pointerCenter.alpha=0;
         this.addChild(this.pointerCenter);
-
-        //내 플레이어 처리
-        this.player = new Player(game,100,400,nickname);
-        this.unitLayer.addChild(this.player);
-        this.player.init_Timers(game);
-        //내 플레이어 처리End
-
+        
         //카메라 처리
         game.camera.smoothFollow = 2;
         game.camera.smoothZoom = 5;
@@ -646,9 +742,15 @@
         this.gameArea = new Light.Rectangle(0, 0, 4000, 4000);
         game.camera.moveBounds = this.gameArea;
         //카메라 처리End
+        
+        //내 플레이어 처리
+        this.player = new Player(game,800 +500,700+500,nickname);
+        this.unitLayer.addChild(this.player);
+        this.player.init_Timers(game);
+        //내 플레이어 처리End
 
         //other 처리
-        this.otherPs[0] = new Player(game,600,400,"test0354");
+        this.otherPs[0] = new Player(game,800+500,700+500,"test0354");
         this.unitLayer.addChild(this.otherPs[0]);
         this.otherPs[0].init_Timers(game);
         //other 처리END
@@ -673,7 +775,7 @@
 
         //내 player  처리
         player.faceMouse(game);
-        player.keyControl(game);
+        player.keyControl(game,elapsed);
         player.syncHpXY();
 
         player.bulletControlByClick(game,gameState,localMousePos);
@@ -683,20 +785,16 @@
 
 
         //other 처리
-        otherPs[0].x = his.x;
-        otherPs[0].y = his.y;
-        otherPs[0].weapon.rotation = his.rot;
-
         otherPs[0].textFollow();
         otherPs[0].otherHpChange();
-
+        
         otherPs[0].faceSomething(game,his.rot);
-        otherPs[0].bulletControlBySocket(game,his.mousePos);
+        otherPs[0].getSocketedXYRot(elapsed);
 
+        
+        otherPs[0].bulletControlBySocket(game,his.mousePos);
         otherPs[0].renderBullet(elapsed);
         //other 처리END
-
-
         };
 
 

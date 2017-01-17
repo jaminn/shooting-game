@@ -545,33 +545,30 @@
                 if(NoEmittedCnt != 0 && NoEmittedCnt <= 3){
                     let x_move = his.x-his_past.x;
                     let y_move = his.y-his_past.y;
+                    let M = player.speed * elapsed;
                     if(x_move>0 && y_move>0){
-                        player.x += player.speed * elapsed;
-                        player.y += player.speed * elapsed;
+                        this.collCheckedMove(M,M);
                         player.walkState = "move";
                     }else if(x_move<0 && y_move>0){
-                        player.x -= player.speed * elapsed;
-                        player.y += player.speed * elapsed;
+                        this.collCheckedMove(-M,M);
                         player.walkState = "move";
                     }else if(x_move>0 && y_move<0){
-                        player.x += player.speed * elapsed;
-                        player.y -= player.speed * elapsed;
+                        this.collCheckedMove(M,-M);
                         player.walkState = "move";
                     }else if(x_move<0 && y_move<0){
-                        player.x -= player.speed * elapsed;
-                        player.y -= player.speed * elapsed;
+                        this.collCheckedMove(-M,-M);
                         player.walkState = "move";
                     }else if(x_move == 0 && y_move<0){
-                        player.y -= player.speed * elapsed;
+                        this.collCheckedMove(0,-M);
                         player.walkState = "move";
                     }else if(x_move == 0 && y_move>0){
-                        player.y += player.speed * elapsed;
+                        this.collCheckedMove(0,M);
                         player.walkState = "move";
                     }else if(x_move > 0 && y_move==0){
-                        player.x += player.speed * elapsed;
+                        this.collCheckedMove(M,0);
                         player.walkState = "move";
                     }else if(x_move < 0 && y_move==0){
-                        player.x -= player.speed * elapsed;
+                        this.collCheckedMove(-M,0);
                         player.walkState = "move";
                     }else{
                         player.walkState = "stop";
@@ -580,6 +577,22 @@
                     NoEmittedCnt++;
                 }
             }
+        }
+        
+        collCheckedMove(x,y){
+            let player = this;   
+            let isCollide = false;
+            game.states.current.grounds.forEach((ground,inx)=>{
+            if(ground.getBounds().intersects(player.getBounds())){
+                    isCollide = true;
+                    console.log(inx);
+                    console.log(ground);
+                }
+            });
+            if(!isCollide){
+                player.x += x;
+                player.y += y;
+            }            
         }
         
         bulletControlByClick(game){

@@ -1023,7 +1023,8 @@ Light.Physics.prototype.update = function (elapsed) {
             entity.body.velocity.multiply(entity.body.friction);
         }
 
-        if (!entity.body.isCollisionAllowed) continue;
+        //if (!entity.body.isCollisionAllowed) continue;
+        //충돌 확인
         for (var j = 0; j < this.entities.length; j++) {
             if (entity === this.entities[j] || !this.entities[j].body.isCollisionAllowed) continue;
             this.game.physics.collide(entity, this.entities[j]);

@@ -279,6 +279,7 @@
             game.physics.add(this);
 //            this.body.maxVelocity.x = speed;
 //            this.body.maxVelocity.y = speed;
+            this.body.isCollisionAllowed = false;
             this.speed = speed;
 
             this.width = this.sprite.width;

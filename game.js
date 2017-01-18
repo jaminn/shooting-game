@@ -277,8 +277,8 @@
             this.sprite = new Light.Sprite(imgSrc);
             this.addChild(this.sprite);
             game.physics.add(this);
-//            this.body.maxVelocity.x = speed;
-//            this.body.maxVelocity.y = speed;
+            this.body.maxVelocity.x = speed;
+            this.body.maxVelocity.y = speed;
             this.body.isCollisionAllowed = false;
             this.speed = speed;
 
@@ -506,31 +506,36 @@
                 elapsed = pre_elapsed;
             }
             //console.log("elapsed :"+elapsed)
+            player.body.velocity.x = 0;
+            player.body.velocity.y = 0;
             player.walkState = "stop";
                 if (game.input.keyboard.isPressed(player.key_left)) {
                     player.walkState = "left";
-                    player.x -= player.speed * elapsed;
-                    //player.body.velocity.x -= player.speed * elapsed;
+                    //player.x -= player.speed * elapsed;
+                    player.body.velocity.x = -1*(player.speed * elapsed);
                 }
                 if (game.input.keyboard.isPressed(player.key_right)) {
                     player.walkState = "right";
-                    player.x += player.speed * elapsed;
-                    //player.body.velocity.x += player.speed * elapsed;
+                    //player.x += player.speed * elapsed;
+                    player.body.velocity.x = (player.speed * elapsed);
                 }
                 if (game.input.keyboard.isPressed(player.key_up)) {
                     player.walkState = "up";
-                    player.y -= player.speed * elapsed;
-                    //player.body.velocity.y -= player.speed * elapsed;
+                    //player.y -= player.speed * elapsed;
+                    player.body.velocity.y = -1*(player.speed * elapsed);
                 }
                 if (game.input.keyboard.isPressed(player.key_down)) {
                     player.walkState = "down";
-                    player.y += player.speed * elapsed;
+                    //player.y += player.speed * elapsed;
+                    player.body.velocity.y = (player.speed * elapsed);
 
                 }//키보드 상하좌우 입력
         }
         
         getSocketedXYRot(elapsed){
             let player = this;
+            player.body.velocity.x = 0;
+            player.body.velocity.y = 0;
             if(NoEmittedCnt == 0){
                 player.weapon.rotation = his.rot;
                 if(player.x != his.x || player.y != his.y){
@@ -590,8 +595,8 @@
                 }
             });
             if(!isCollide){
-                player.x += x;
-                player.y += y;
+            player.body.velocity.x = x;
+            player.body.velocity.y = y;
             }            
         }
         

@@ -550,7 +550,7 @@
                 if(NoEmittedCnt != 0 && NoEmittedCnt <= 3){
                     let x_move = his.x-his_past.x;
                     let y_move = his.y-his_past.y;
-                    let M = player.speed * elapsed;
+                    let M = player.speed * 0.001;
                     if(x_move>0 && y_move>0){
                         this.collCheckedMove(M,M);
                         player.walkState = "move";

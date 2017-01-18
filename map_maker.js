@@ -5,7 +5,8 @@ p2 200 300
 p3 400 300
 p4 200 300
 
-map 0 0
+back 0 0
+fore 0 0
 b1 704 706
 b2 124 156
 b3 704 157
@@ -48,6 +49,7 @@ class MapMaker{
         this.playerXYs;
         this.blockNameXYs;
         this.background;
+        this.foreground;
         this.myMaps;
         this.myXMarks=[];
         
@@ -71,7 +73,8 @@ class MapMaker{
     loadAll(loader){
         //console.log(this.blockNameXYs);
         loader.loadImage('xImg', 'xImg.png');
-        for(let block of this.blockNameXYs){        loader.loadImage(block.name,`${this.mapName}/${block.name}.png`);
+        for(let block of this.blockNameXYs){        
+            loader.loadImage(block.name,`${this.mapName}/${block.name}.png`);
         }
     }
     drawMap(game){
@@ -167,10 +170,19 @@ class MapMaker{
         let tmpMap;
         
         for(let block of this.blockNameXYs){
-            if(block.name === 'map'){
+            if(block.name === 'back'){
                 tmpMap = new Light.Sprite(game.asset.getImage(`${block.name}`));
                 state.addChild(tmpMap);
                 this.background = tmpMap;
+                
+                tmpMap.x = block.x * size +offset;
+                tmpMap.y = block.y * size +offset;
+                
+                tmpMap.width  *= size;
+                tmpMap.height *= size;
+            }else if(block.name === 'fore'){
+                tmpMap = new Light.Sprite(game.asset.getImage(`${block.name}`));
+                this.foreground = tmpMap;
                 
                 tmpMap.x = block.x * size +offset;
                 tmpMap.y = block.y * size +offset;
@@ -190,6 +202,11 @@ class MapMaker{
             }
         }
         this.myMaps = tmpMaps;
+    }
+    
+    addForeground(game){
+        let state = game.states.currentState;
+        state.addChild(this.foreground);
     }
     
 }

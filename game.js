@@ -213,7 +213,7 @@
     
     var testMap = new MapMaker("map",testingMap);
     
-    var game = new Light.Game('game', 1100, 600, '#004A7B', function (asset) {
+    var game = new Light.Game('game', 1100, 600, '#282828', function (asset) {
         testMap.loadAll(asset);
         asset.loadImage('e1', 'image/enemy1.png');
         asset.loadImage('e2', 'image/enemy2.png');
@@ -221,12 +221,12 @@
         asset.loadImage('g1', 'image/ground1.png');
         asset.loadImage('g2', 'image/ground2.png');
         asset.loadImage('bullet', 'image/bullet.png');
+        asset.loadImage('bullet2', 'image/bullet2.png');
         
         asset.loadImage('gunR', 'image/p1/p1Onehand_R.png');
         asset.loadImage('gunL', 'image/p1/p1Onehand_L.png');
         asset.loadImage('gunTwo', 'image/p1/p1Twohand.png');
         
-        asset.loadImage('back', 'image/back.png');
         asset.loadImage('test','image/test.png');
         asset.loadAudio('gunfire', 'audio/gun.wav');
         asset.loadImage('arrow','image/arrow.png');
@@ -256,7 +256,7 @@
         endState.children = [];
         game.camera.children = [];
 
-        this.addChild(new Light.Sprite(game.asset.getImage('back')));
+        this.addChild(new Light.Sprite(game.asset.getImage('backX')));
         display_text(this,"동팡 앗!",40,300,"#00f","100px Dosis");
         display_text(this,"창을 두개 이상 띄우셈",40,400,"#fff","30px Dosis");
 
@@ -298,8 +298,7 @@
             this.weapon.rotationCenter.x = 0;
             this.weapon.rotationCenter.y = 16;
             this.addChild(this.weapon);
-
-            this.bullets = [];
+            
             this.hpText;
             this.nickText;
             this.walkState = "stop";
@@ -307,6 +306,7 @@
             this.sprite.scaleCenter.x = this.width / 2;
             this.weapon.scaleCenter.y = 5;
             this.hp = 300;
+            this.bullets = [];
 
             this.key_up = Light.Keyboard.W;
             this.key_right= Light.Keyboard.D;
@@ -627,8 +627,8 @@
             let w = player.weapon;
 
             
-            let b = new Light.Sprite(game.asset.getImage('bullet'));
-            b.rotationCenter= new Light.Point(0,5);
+            let b = new Light.Sprite(game.asset.getImage('bullet2'));
+            b.rotationCenter= new Light.Point(0,b.height/2);
             let bOneHandYOffset = -24;
             let bTwoHandYOffset = -15;
 
@@ -656,7 +656,7 @@
             w.lastShootTime = Date.now();
             b.speed = 1500;
             player.bullets.push(b);
-            game.states.current.addChild(b);
+            game.states.current.bulletLayer.addChild(b);
         }
         
         renderBullet(elapsed){
@@ -670,13 +670,13 @@
                 game.states.current.grounds.forEach((ground,inx)=>{
                 if(ground.getBounds().contains(bullet.getBounds().getCenter())){
                         player.bullets.removeEle(bullet);
-                        game.states.current.removeChild(bullet);
+                        game.states.current.bulletLayer.removeChild(bullet);
                     }
                 });
 
                 if (!bullet.getBounds().intersects(game.states.current.gameArea)){
                     player.bullets.removeEle(bullet);
-                    game.states.current.removeChild(bullet);
+                    game.states.current.bulletLayer.removeChild(bullet);
                 }
 
             } //총알 충돌 처리 
@@ -699,7 +699,7 @@
     class Weapon extends Light.Sprite{
         constructor(){
             super(game.asset.getImage('gunR'));
-            this.shootDelay = 50;
+            this.shootDelay = 100;
             this.lastShootTime = Date.now();
         }
         
@@ -739,13 +739,18 @@
 //        this.grounds[4].width = 100;
 //        this.grounds[5] = make_rigid(this,'g2',1400,900);
 //        this.grounds[5].width = 500;
-
+        
         this.lightSprite = new Light.Sprite('image/light.png');
         this.addChild(this.lightSprite);
 
         this.unitLayer = new Light.EntityContainer();
         this.addChild(this.unitLayer);
-
+        
+        this.bulletLayer = new Light.EntityContainer();
+        this.addChild(this.bulletLayer);
+        
+        testMap.addForeground(game);
+        
         this.mousePointer = new Light.Sprite('image/mouse_pointer.png');
         this.addChild(this.mousePointer);
 

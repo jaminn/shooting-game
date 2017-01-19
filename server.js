@@ -9,84 +9,108 @@ app.get('/', function(req, res){
   res.sendFile(__dirname + '/index.html');
 });
 
-var Clients=[];
+var ids=[];
+var nicks=[];
 var count = 1;
 
+var isStarted = false;
+let change_interval;
 
-function get_client_nick(id){
-    console.log(id);
-    Clients.forEach((client,idx)=>{
-        if(client.id == id){
-            return client.nick;
-        }
-    });
-}
-
-
-
+//change_interval = setInterval(()=>{
+//    if(isStarted){
+//        io.sockets.emit('start',nicks);
+//    }
+//},1000);
 
 io.on('connection', function(socket){
     let nickname = "P" + (count++);
-    Clients.push({id:socket.id, nick:nickname});
+    ids.push(socket.id);
+    nicks.push(nickname);
     socket.emit("get_nickname",nickname);
+    
     
     console.log("__Conn__");
     console.log(socket.id);
     console.log("current Users:");
-    console.log(Clients);
-    console.log("__ConnEND__");
+    console.log(ids);
+    console.log("__ConnEND__\n");
     
+    console.log(io.sockets.adapter.rooms);
     
     socket.on('start_check',(debug)=>{
         //console.log(debug);
-        if(Clients.length >= 2){
-            socket.emit('start',{players: Clients});
+        if(!isStarted){
+            if(ids.length >= 2){
+                console.log('시작');
+                socket.join('death match');
+                console.log(nicks);
+                socket.emit('start',nicks);
+                isStarted = true;
+            }
+        }else{
+            socket.join('death match');
+            if(ids.includes(socket.id)){
+                io.sockets.in('death match').emit('start',nicks);   
+            }else{
+                ids.push(socket.id);
+                nicks.push(nickname);
+                console.log(nicks);
+                io.sockets.in('death match').emit('start',nicks);
+            }
         }
     });
     
     socket.on('restart_check',(debug)=>{
+        //socket.leave('death match');
         //console.log(debug);     
-        if(Clients.length < 2){
+        if(ids.length < 2){
             console.log('restart|ONrestart_check');
             socket.emit('restart','restart:ONrestart_check');
+            isStarted = false;
         }
     });
     
-    socket.broadcast.on('pass_mine',(mine)=>{
-//        console.log('START|pass_mine');
-//        console.log(mine);
-//        console.log('END|pass_mine');
-        socket.broadcast.emit('get_his',mine);
+    socket.on('die_check', (debug)=> {
+        nicks.splice(ids.indexOf(socket.id),1);
+        ids.splice(ids.indexOf(socket.id),1);
+        io.sockets.in('death match').emit('start',nicks);
+        socket.leave('death match');
     });
     
-    socket.broadcast.on('pass_his_hp',(his_hp)=>{
+    socket.on('pass_mine',(mine)=>{
 //        console.log('START|pass_mine');
 //        console.log(mine);
 //        console.log('END|pass_mine');
-        socket.broadcast.emit('get_my_hp',his_hp);
+        socket.in('death match').emit('get_his',mine);
     });
     
-     socket.broadcast.on('pass_my_bullet',(bullet_cnt)=>{
+    socket.on('pass_his_hpNick',(hpNick)=>{
+        
 //        console.log('START|pass_mine');
 //        console.log(mine);
 //        console.log('END|pass_mine');
-        socket.broadcast.emit('get_his_bullet',bullet_cnt);
+        socket.in('death match').emit('get_my_hpNick', hpNick);
+    });
+    
+    socket.on('pass_my_bullet',(bullet_cnt)=>{
+//        console.log('START|pass_my_bullet');
+//        console.log(bullet_cnt);
+//        console.log('END|pass_my_bullet');
+        socket.in('death match').emit('get_his_bullet',bullet_cnt);
     });
     
 
     socket.on('disconnect', function() {
-        
-        Clients.forEach((data,idx)=>{
-            if(data.id == socket.id){
-                Clients.splice(idx,1);
-            }
-        });
+        nicks.splice(ids.indexOf(socket.id),1);
+        ids.splice(ids.indexOf(socket.id),1);
+        io.sockets.in('death match').emit('start',nicks);
         
         console.log("__Exit__");
         console.log(socket.id);
         console.log("current Users:");
-        console.log(Clients);
-        console.log("__ExitEND__");
+        console.log(ids);
+        console.log(nicks);
+        console.log("__ExitEND__\n");
         
     });
 });

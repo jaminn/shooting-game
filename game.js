@@ -2,23 +2,85 @@
 
     let isStarted = false;
 
-    let his={x: 0,y: 0,rot: 0,
-    mousePos:new Light.Point(0,0),
-    hp:300};
-
-    let his_past={x: 0,y: 0,rot: 0,
-    mousePos:new Light.Point(0,0),
-    hp:300};
-
-    let NoEmittedCnt = 0;
-    let mine_hp = 300;
-    let nickname;
-
     let preStart_interval;
     let start_interval;
     let restart_interval;
 
-    class toggler{
+    class ManagePlayers{
+        constructor(){
+            this.nicks = [];
+            this.my;
+        }
+        setNicks(nicks,game){
+            //console.log('__플레이어 변경__');
+            let state = gameState;
+            let player = state.player;
+            
+            if(this.nicks.length === 0){
+                console.log('플레이어 초기화');
+                this.nicks = nicks;
+            }else{
+                if(this.nicks.length < nicks.length){
+                    console.log('플레이어 추가');
+                    this.nicks = nicks; 
+
+                    let x = parseInt(testMap.playerXYs[this.getInxLast()%testMap.playerXYs.length].x);
+                    let y = parseInt(testMap.playerXYs[this.getInxLast()%testMap.playerXYs.length].y);
+                    let inx = this.getInxLast()-1;
+
+                    state.otherPs[inx] = new Player(game,x,y,this.nicks[this.getInxLast()]);
+                    state.unitLayer.addChild(state.otherPs[inx]);
+                    state.otherPs[inx].init_Timers(game);
+                }else if(this.nicks.length > nicks.length){
+                    console.log('플레이어 제거');
+                    console.log(this.nicks);
+                    console.log(this.nicks.diff(nicks));
+                    console.log(state.otherPs);
+                    console.log(state.unitLayer.children);
+                    this.nicks.diff(nicks).forEach((nick)=>{
+                        state.otherPs.forEach((p,inx)=>{
+                            if(p.nick === nick)
+                                state.otherPs.splice(inx,1);
+                        });
+                        state.unitLayer.children.forEach((ch,inx)=>{
+                            if(ch.nick === nick)
+                                state.unitLayer.children.splice(inx,1); 
+                        });
+                    });
+                    
+                    this.nicks = nicks;
+                }else{
+                    //console.log('플레이어 변경 X');
+                }
+            }
+        }
+        getNicks(){
+            return this.nicks;
+        }
+        getOthers(){
+            let tmpPlayers = [...this.nicks];
+            tmpPlayers.splice(this.getMyInx(),1);
+            return tmpPlayers;
+        }
+        setMy(p){
+            this.my = p;
+        }
+        getMy(){
+            return this.my;
+        }
+        getMyInx(){
+            return this.getInx(this.my);
+        }
+        getInxLast(){
+            return this.nicks.length-1;
+        }
+        getInx(p){
+            return this.nicks.indexOf(p);
+        }        
+    }
+    let manageP = new ManagePlayers();
+
+    class Toggler{
         constructor(N){
             this.N = N;
             this.cnt =0;
@@ -34,35 +96,35 @@
         }
     }
 
-    var counter = 1;
-    function toggle(){
-        if(counter == 1){
-            counter = 1;
-            return true;
-        }else{
-            counter++;
-            return false;
-        }
-    }
-
     socket.on('get_nickname',(nick)=>{
         console.log("닉네임은:");
         console.log(nick);
-        nickname = nick;
+        manageP.setMy(nick);
     });
 
 
-    socket.on('start',(debug)=>{
-        console.log(debug);
-        clearInterval(start_interval);
-        start_interval = null;
-        isStarted = true;
-        game.states.change('mainGame');
+    socket.on('start',(nicks)=>{
+        if(!isStarted){
+            manageP.setNicks(nicks,game);
+            
+            console.log("nicks 는?")
+            console.log(nicks);
+            
+            game.states.change('mainGame');
+            
+            clearInterval(start_interval);
+            start_interval = null;
+            isStarted = true;
 
-        if(!restart_interval){
-            restart_interval = setInterval(()=>{
-                socket.emit('restart_check','restart_check_emitted');
-            },1000);
+            
+            if(!restart_interval){
+                restart_interval = setInterval(()=>{
+                    socket.emit('restart_check','restart_check_emitted');
+                },1000);
+            }
+            
+        }else{// 플레이어 추가 또는 삭제
+            manageP.setNicks(nicks,game);
         }
     });
 
@@ -79,28 +141,46 @@
     //        console.log('START|ONget_his');
     //        console.log(data);
     //        console.log('END|ONget_his');
-        his_past =  clone(his);
-        his = data;
-        NoEmittedCnt = 0;
+        if(gameState.otherPs){
+            gameState.otherPs.forEach((P,inx)=>{
+                if(P.nick === data.nick){
+                    P.his_past = clone(P.his);
+                    P.his = data;
+                    P.NoEmittedCnt = 0;
+                }
+            });   
+        }
     });
 
-    socket.on('get_my_hp', (data) =>{
+    socket.on('get_my_hpNick', (hpNick) =>{
 //        console.log('START|ONget_my_hp');
 //        console.log(data);
 //        console.log('END|ONget_my_hp');
-        mine_hp = data;
+        let player = gameState.player;
+        let otherPs = gameState.otherPs;
+        
+        if(player.nick === hpNick.nick){
+            player.mine_hp = hpNick.hp;  
+        }else{
+            if(otherPs){
+                otherPs.forEach((P,inx)=>{
+                    if(P.nick === hpNick.nick){
+                        P.mine_hp = hpNick.hp;  
+                    }
+                });   
+            }
+        }
     });
     
-    let his_wait_cnt = 0;
-    socket.on('get_his_bullet',(data)=>{
-        his_wait_cnt = data;
+    socket.on('get_his_bullet',(nick)=>{
+        if(gameState.otherPs){
+            gameState.otherPs.forEach((P,inx)=>{
+                if(P.nick === nick){
+                    P.his_wait_cnt++;
+                }
+            });
+        }
     });
-
-    function get_bullet_cnt(){
-        var cnt = his_wait_cnt;
-        his_wait_cnt = 0;
-        return cnt;
-    }
 
     function display_text(my_game,text="test",x=300, y=300,fillStyle="#fff",font="50px Dosis"){
         let label;
@@ -152,8 +232,6 @@
         obj.addChild(obj.sprite);
     }
 
-
-
     function pass_mine(mine){
     //        console.log('START|pass_mine');
     //        console.log(mine);
@@ -162,15 +240,15 @@
         //my_pos = pos;
     }
 
-    function pass_bullet(){
-        socket.emit('pass_my_bullet',1);
+    function pass_bullet(nick){
+        socket.emit('pass_my_bullet',nick);
     }
 
-    function pass_his_hp(hp){
+    function pass_his_hpNick(hp,nick){
         //console.log('START|pass_his_hp');
         //console.log(hp);
         //console.log('END|pass_his_hp');
-        socket.emit('pass_his_hp',hp);
+        socket.emit('pass_his_hpNick',{hp:hp,nick:nick});
     }
 
     function clone(obj) {
@@ -210,6 +288,9 @@
     Array.prototype.removeEle = function(ele) {
         this.splice(this.indexOf(ele), 1);
     }
+    Array.prototype.diff = function(a) {
+    return this.filter(function(i) {return a.indexOf(i) < 0;});
+};
     
     var testMap = new MapMaker("map",testingMap);
     
@@ -251,10 +332,12 @@
     var endState = new Light.State(game);
 
     introState.onInit = function () {
+        isStarted = false;
         introState.children = [];
         gameState.children = [];
         endState.children = [];
         game.camera.children = [];
+        manageP.nicks = [];
 
         this.addChild(new Light.Sprite(game.asset.getImage('backX')));
         display_text(this,"동팡 앗!",40,300,"#00f","100px Dosis");
@@ -292,12 +375,17 @@
             super(game.asset.getImage(img), 500);
             this.x = x;
             this.y = y;
-            this.textInit(game,nickname);
+            this.toggler = new Toggler(0);
+            this.mine_hp = 300;
+            this.nick = nickname;
 
             this.weapon = new Weapon();
             this.weapon.rotationCenter.x = 0;
             this.weapon.rotationCenter.y = 16;
             this.addChild(this.weapon);
+            
+            this.nickText = display_text(this,this.nick,0,20,"#fff","30px Dosis");
+            this.hpText = display_text(this,"",0,-20,"#fff","30px Dosis");
             
             this.hpText;
             this.nickText;
@@ -307,7 +395,11 @@
             this.weapon.scaleCenter.y = 5;
             this.hp = 300;
             this.bullets = [];
-
+            this.his={x: x, y: y, rot: 0, mousePos: new Light.Point(0,0), hp: 300};
+            this.his_past={x: x, y: y, rot: 0, mousePos: new Light.Point(0,0), hp: 300};
+            this.his_wait_cnt = 0;
+            this.NoEmittedCnt = 1;
+    
             this.key_up = Light.Keyboard.W;
             this.key_right= Light.Keyboard.D;
             this.key_down= Light.Keyboard.S;
@@ -315,25 +407,12 @@
 
             this.mouse_key= Light.Mouse.LEFT;
         }
-        textInit(game,nick){
-            let player = this;
-            player.nickText = display_text(game.states.current,nick,0,0,"#fff","30px Dosis");
-            player.hpText = display_text(game.states.current,"",30,100,"#fff","30px Dosis");
-        }
         
-        textFollow(){
-            let player = this;
-            player.hpText.x = player.x;
-            player.hpText.y = player.y+20;
-
-            player.nickText.x = player.x;
-            player.nickText.y = player.y-20;//플레이어 따라다니는 체력&닉네임
-
-        }
         syncHpXY(){
             let player = this;
-            if(toggle()){
-                pass_mine({x: player.x,
+            if(this.toggler.test_toggle()){
+                pass_mine({nick:player.nick,
+                           x: player.x,
                            y: player.y,
                            rot: player.weapon.rotation,
                            mousePos: game.camera.screenToLocal(game.input.mouse.position),
@@ -393,9 +472,9 @@
                 this.rightTimer.pause();
 
                 if(!checkImg(player,"p1BackW1")){
-                    change_sprite(game, player,"p1BackW1");
+                    change_sprite_inx(game, player,"p1BackW1",1);
                 }else{
-                    change_sprite(game, player,"p1BackW2");
+                    change_sprite_inx(game, player,"p1BackW2",1);
                 }
 
             });
@@ -413,6 +492,7 @@
         
         mineHpChange(){
             let player = this;
+            let mine_hp = this.mine_hp;
             //HP 처리
             if(player.hp !== mine_hp){
                 player.hpText.alpha = 1;
@@ -421,9 +501,8 @@
             }
 
             if (player.hp <= 0) {
-                player.hp = 0;
-                game.camera.removeChild(player.hpText);
                 game.states.change('end');
+                socket.emit('die_check',"죽었습니다.");
             }
 
             else if (player.hp < 90) player.hpText.fillStyle = '#f00';
@@ -436,13 +515,23 @@
         
         otherHpChange(){
             let player = this;
-            if (player.hp <= 0) {
-                player.hp = 0;
-                game.camera.removeChild(player.hpText);
-                game.states.change('end');
-            }else if (player.hp < 90) player.hpText.fillStyle = '#f00';
-            else if (player.hp < 180) player.hpText.fillStyle = '#ffba00';// HP관련
-            else player.hpText.fillStyle = '#fff';// HP관련   
+            let mine_hp = this.mine_hp;
+            //HP 처리
+            if(player.hp !== mine_hp){
+                player.hpText.alpha = 1;
+                //game.camera.shake(0.1, 3, 15, 15);
+                player.hp = mine_hp;
+            }
+
+//            if (player.hp <= 0) {
+//                player.hp = 0;
+//                game.camera.removeChild(player.hpText);
+//                game.states.change('end');
+//            }
+
+            else if (player.hp < 90) player.hpText.fillStyle = '#f00';
+            else if (player.hp < 180) player.hpText.fillStyle = '#ffba00';
+            else player.hpText.fillStyle = '#fff';// HP관련
             
             player.hpText.text = 'HP ' + ((player.hp / 300) * 100).toFixed(2) + '%';
             player.hpText.alpha += (0.4 - player.hpText.alpha) / 15;
@@ -484,7 +573,7 @@
                         this.backTimer.resume();
                     }else{
                         this.backTimer.pause();
-                        change_sprite(game, player,"p1Back");
+                        change_sprite_inx(game, player,"p1Back",1);
                     }
                 }else {
                     w.changeLoaded(game,'gunL');
@@ -532,11 +621,14 @@
                 }//키보드 상하좌우 입력
         }
         
-        getSocketedXYRot(elapsed){
+        getSocketedXYRot(){
             let player = this;
+            let his = this.his;
+            let his_past = this.his_past;
+            
             player.body.velocity.x = 0;
             player.body.velocity.y = 0;
-            if(NoEmittedCnt == 0){
+            if(this.NoEmittedCnt === 0){
                 player.weapon.rotation = his.rot;
                 if(player.x != his.x || player.y != his.y){
                     player.x = his.x;
@@ -545,59 +637,50 @@
                 }else{
                     player.walkState = "stop";
                 }
-                NoEmittedCnt = 1;
+                this.NoEmittedCnt = 1;
             }else{
-                if(NoEmittedCnt != 0 && NoEmittedCnt <= 3){
+                if(this.NoEmittedCnt !== 0 && this.NoEmittedCnt <= 3){
                     let x_move = his.x-his_past.x;
                     let y_move = his.y-his_past.y;
                     let M = player.speed * 0.001;
                     if(x_move>0 && y_move>0){
-                        this.collCheckedMove(M,M);
+                        this.Move(M,M);
                         player.walkState = "move";
                     }else if(x_move<0 && y_move>0){
-                        this.collCheckedMove(-M,M);
+                        this.Move(-M,M);
                         player.walkState = "move";
                     }else if(x_move>0 && y_move<0){
-                        this.collCheckedMove(M,-M);
+                        this.Move(M,-M);
                         player.walkState = "move";
                     }else if(x_move<0 && y_move<0){
-                        this.collCheckedMove(-M,-M);
+                        this.Move(-M,-M);
                         player.walkState = "move";
                     }else if(x_move == 0 && y_move<0){
-                        this.collCheckedMove(0,-M);
+                        this.Move(0,-M);
                         player.walkState = "move";
                     }else if(x_move == 0 && y_move>0){
-                        this.collCheckedMove(0,M);
+                        this.Move(0,M);
                         player.walkState = "move";
                     }else if(x_move > 0 && y_move==0){
-                        this.collCheckedMove(M,0);
+                        this.Move(M,0);
                         player.walkState = "move";
                     }else if(x_move < 0 && y_move==0){
-                        this.collCheckedMove(-M,0);
+                        this.Move(-M,0);
                         player.walkState = "move";
                     }else{
                         player.walkState = "stop";
                     }
                     
-                    NoEmittedCnt++;
+                    this.NoEmittedCnt++;
                 }
             }
         }
         
-        collCheckedMove(x,y){
+        Move(x,y){
             let player = this;   
-            let isCollide = false;
-            game.states.current.grounds.forEach((ground,inx)=>{
-            if(ground.getBounds().intersects(player.getBounds())){
-                    isCollide = true;
-                    console.log(inx);
-                    console.log(ground);
-                }
-            });
-            if(!isCollide){
             player.body.velocity.x = x;
             player.body.velocity.y = y;
-            }            
+            //}            
         }
         
         bulletControlByClick(game){
@@ -612,12 +695,12 @@
                 sound.volume = 0.3;
                 sound.play();
                 
-                pass_bullet();
+                pass_bullet(this.nick);
             }//총알 발사
         }
         
         bulletControlBySocket(game,mouseRot){
-            for(var b_cnt = get_bullet_cnt();b_cnt>0;b_cnt--){
+            for( ; this.his_wait_cnt>0; this.his_wait_cnt--){
                 this.createBullet2MouseRot(game,mouseRot);
             }
         }
@@ -656,7 +739,7 @@
             w.lastShootTime = Date.now();
             b.speed = 1500;
             player.bullets.push(b);
-            game.states.current.bulletLayer.addChild(b);
+            gameState.bulletLayer.addChild(b);
         }
         
         renderBullet(elapsed){
@@ -667,16 +750,16 @@
                 bullet.x += Math.cos(bullet.rotation) * bullet.speed * elapsed;
                 bullet.y += Math.sin(bullet.rotation) * bullet.speed * elapsed;
 
-                game.states.current.grounds.forEach((ground,inx)=>{
+                gameState.grounds.forEach((ground,inx)=>{
                 if(ground.getBounds().contains(bullet.getBounds().getCenter())){
                         player.bullets.removeEle(bullet);
-                        game.states.current.bulletLayer.removeChild(bullet);
+                        gameState.bulletLayer.removeChild(bullet);
                     }
                 });
 
-                if (!bullet.getBounds().intersects(game.states.current.gameArea)){
+                if (!bullet.getBounds().intersects(gameState.gameArea)){
                     player.bullets.removeEle(bullet);
-                    game.states.current.bulletLayer.removeChild(bullet);
+                    gameState.bulletLayer.removeChild(bullet);
                 }
 
             } //총알 충돌 처리 
@@ -688,13 +771,13 @@
                 if(bullet.getBounds().intersects(other.getBounds())){
                     //console.log("other 맞음 collide");
                     other.hp--;
+                    other.mine_hp = other.hp;
                     other.hpText.alpha = 1;
-                    pass_his_hp(other.hp);
+                    pass_his_hpNick(other.hp,other.nick);
                 }
             }
         }
     }
-
 
     class Weapon extends Light.Sprite{
         constructor(){
@@ -768,16 +851,26 @@
         //카메라 처리End
         
         //내 플레이어 처리
-        this.player = new Player(game,800 +500,700+500,nickname);
+        {
+            let x = parseInt(testMap.playerXYs[manageP.getMyInx()%testMap.playerXYs.length].x);
+            let y = parseInt(testMap.playerXYs[manageP.getMyInx()%testMap.playerXYs.length].y);
+            this.player = new Player(game,x,y,manageP.getMy());
+        }
         this.unitLayer.addChild(this.player);
         this.player.init_Timers(game);
-        //내 플레이어 처리End
-
-        //other 처리
-        this.otherPs[0] = new Player(game,800+500,700+500,"test0354");
-        this.unitLayer.addChild(this.otherPs[0]);
-        this.otherPs[0].init_Timers(game);
-        //other 처리END
+        //내 플레이어 
+        
+        manageP.getOthers().forEach((player,inx)=>{
+            //other 처리
+            {
+                let x = parseInt(testMap.playerXYs[manageP.getInx(player)%testMap.playerXYs.length].x);
+                let y = parseInt(testMap.playerXYs[manageP.getInx(player)%testMap.playerXYs.length].y);
+                this.otherPs[inx] = new Player(game,x,y,player);
+            }
+            this.unitLayer.addChild(this.otherPs[inx]);
+            this.otherPs[inx].init_Timers(game);
+            //other 처리END            
+        });
         
     };
 
@@ -793,8 +886,6 @@
 
         let player = this.player;
         let otherPs = this.otherPs;
-        player.textFollow();
-        player.mineHpChange();
         
 
         //내 player  처리
@@ -804,21 +895,23 @@
 
         player.bulletControlByClick(game,gameState,localMousePos);
         player.renderBullet(elapsed);
-        player.colWithBulletCheck(otherPs[0]);
+        manageP.getOthers().forEach((p,inx)=>{
+            player.colWithBulletCheck(otherPs[inx]);
+        });
+        player.mineHpChange();
         //내 player 처리END
 
-
+        
         //other 처리
-        otherPs[0].textFollow();
-        otherPs[0].otherHpChange();
-        
-        otherPs[0].faceSomething(game,his.rot);
-        otherPs[0].getSocketedXYRot(elapsed);
-
-        
-        otherPs[0].bulletControlBySocket(game,his.mousePos);
-        otherPs[0].renderBullet(elapsed);
-        //other 처리END
+         manageP.getOthers().forEach((player,inx)=>{
+            otherPs[inx].otherHpChange();
+            otherPs[inx].faceSomething(game,otherPs[inx].his.rot);
+            otherPs[inx].getSocketedXYRot();
+             
+            otherPs[inx].bulletControlBySocket(game,otherPs[inx].his.mousePos);
+            otherPs[inx].renderBullet(elapsed);
+         });
+         //other 처리END
         };
 
 

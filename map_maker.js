@@ -1,9 +1,9 @@
 var testingMap=
 `
-p1 300 200
-p2 200 300
-p3 400 300
-p4 200 300
+p1 220 200
+p2 350 200
+p3 220 200
+p4 220 200
 
 back 0 0
 fore 0 0
@@ -46,7 +46,8 @@ function make_rigid(state,image_name,x=100,y=200){
 class MapMaker{
     constructor(mapName,mapData){
         this.mapName = mapName;
-        this.playerXYs;
+        this.ori_playerXYs=[];
+        this.playerXYs=[];
         this.blockNameXYs;
         this.background;
         this.foreground;
@@ -65,7 +66,7 @@ class MapMaker{
              }
              match = rex.exec(mapData);
          }
-        this.playerXYs = pXYs;
+        this.ori_playerXYs = pXYs;
         this.blockNameXYs = bNameXYs;
         
     }
@@ -168,6 +169,12 @@ class MapMaker{
         let state = game.states.currentState;
         let tmpMaps=[];
         let tmpMap;
+        
+        let tmpXYs = [];
+        this.ori_playerXYs.forEach((XY,inx)=>{
+            tmpXYs.push({x: XY.x * size +offset, y: XY.y * size +offset});
+        });
+        this.playerXYs = tmpXYs;
         
         for(let block of this.blockNameXYs){
             if(block.name === 'back'){

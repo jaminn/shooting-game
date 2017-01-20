@@ -25,7 +25,11 @@ let change_interval;
 //},1000);
 
 io.on('connection', function(socket){
-    let nickname = "P" + (count++);
+    let tmpNick = "P" + (count++);
+    while(nicks.includes(tmpNick)){
+        tmpNick = "P" + (count++);
+    }
+    let nickname = tmpNick;
     ids.push(socket.id);
     nicks.push(nickname);
     hps.push(300);
@@ -39,7 +43,7 @@ io.on('connection', function(socket){
     console.log(ids);
     console.log("__ConnEND__\n");
     
-    console.log(io.sockets.adapter.rooms);
+    //console.log(io.sockets.adapter.rooms);
     
     socket.on('start_check',(debug)=>{
         //console.log(debug);
@@ -68,6 +72,20 @@ io.on('connection', function(socket){
             io.sockets.in('death match').emit('init_hp',hps);
         }
     });
+    
+    socket.on('change_nick',(nick)=>{
+        console.log(nick);
+        console.log(nicks);
+        console.log(nicks.indexOf(nick));
+        if(nicks.indexOf(nick) !== -1){
+            socket.emit('invalid_nick','이미 존재 합니다.');
+        }else{
+            socket.emit('valid_nick',nick);
+            nicks.splice(ids.indexOf(socket.id),1,nick);
+        }
+            
+    });
+    
     
     socket.on('restart_check',(debug)=>{
         //socket.leave('death match');
@@ -100,7 +118,7 @@ io.on('connection', function(socket){
 //        console.log(mine);
 //        console.log('END|pass_mine');
         hps[nicks.indexOf(hpNick.nick)] = hpNick.hp;
-        console.log(hps);
+        //console.log(hps);
         socket.in('death match').emit('get_my_hpNick', hpNick);
     });
     

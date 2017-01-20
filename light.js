@@ -797,6 +797,7 @@ Light.Keyboard.RIGHT = 39;
 Light.Keyboard.DOWN = 40;
 Light.Keyboard.INSERT = 45;
 Light.Keyboard.DELETE = 46;
+Light.Keyboard.NUMBER_0 = 48;
 Light.Keyboard.NUMBER_1 = 49;
 Light.Keyboard.NUMBER_2 = 50;
 Light.Keyboard.NUMBER_3 = 51;

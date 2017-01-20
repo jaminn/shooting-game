@@ -102,6 +102,17 @@
         manageP.setMy(nick);
     });
 
+    socket.on('invalid_nick',(debug)=>{
+       console.log(debug);
+        firstState.inputbox.sprite.alpha = 1;
+    });
+
+    socket.on('valid_nick',(nick)=>{
+        console.log(nick);
+        manageP.my = nick;
+        game.states.change('intro');
+    })
+
 
     socket.on('start',(nicks)=>{
         if(!isStarted){
@@ -294,12 +305,86 @@
         this.splice(this.indexOf(ele), 1);
     }
     Array.prototype.diff = function(a) {
-    return this.filter(function(i) {return a.indexOf(i) < 0;});
-};
+        return this.filter(function(i) {return a.indexOf(i) < 0;});
+    };
     
     var testMap = new MapMaker("map",testingMap);
     
+    class Button{
+        constructor(place,img,x,y,size=1){
+            this.sprite = display_img(place,img,x,y);
+            this.sprite.width = this.sprite.width * size;
+            this.sprite.height = this.sprite.height * size;
+        }
+        check_clicked(thisObj,justPressed,callback){
+            let localMousePos = game.camera.screenToLocal(game.input.mouse.position);
+            if(justPressed && this.sprite.getBounds().contains(localMousePos)){
+                callback.call(thisObj);
+            }
+        }
+    }
+
+    class Input extends Button{
+        constructor(place,img,text,x,y,size=1){
+            super(place,img,x,y,size);
+            this.focused = false;
+            this.sprite.alpha = 0.5;
+            this.fontSize = this.sprite.height * 0.6;
+            this.fontType="Dosis";
+            this.textbox = display_text(place,text, x+this.sprite.height * 0.2, y+ this.sprite.height * 0.1,'#333',`${this.fontSize}px ${this.fontType}`);
+        }
+        check_focused(justPressed){
+            let localMousePos = game.camera.screenToLocal(game.input.mouse.position);
+            if(justPressed && this.sprite.getBounds().contains(localMousePos)){
+                this.focused = true;
+                this.sprite.alpha = 1;
+            }
+            if(justPressed && !this.sprite.getBounds().contains(localMousePos)){
+                this.focused = false;
+                this.sprite.alpha = 0.5;
+            }
+        }
+        check_keypressed(){
+            if(this.focused){
+                game.input.keyboard.keyCapturing.forEach((key,inx)=>{
+                    let justPressed = game.input.keyboard.isJustPressed(key);
+                    let pressed =game.input.keyboard.isPressed(key);
+                    
+                    if(this.textbox.text.length <= 12){
+                        if(justPressed && ('A'.charCodeAt(0) <= key &&  key <= 'Z'.charCodeAt(0))){
+                            if(game.input.keyboard.isPressed(Light.Keyboard.SHIFT)){
+                                this.textbox.text += String.fromCharCode(key); 
+                            }else{
+                                this.textbox.text += String.fromCharCode(key).toLowerCase();  
+                            }
+                        }
+                        if(justPressed && (Light.Keyboard.NUMBER_0 <= key &&  key <= Light.Keyboard.NUMBER_9)){
+                                this.textbox.text += String.fromCharCode(key); 
+                        }
+
+                        if(justPressed && (Light.Keyboard.NUMPAD_0 <= key &&  key <= Light.Keyboard.NUMPAD_9)){
+                                this.textbox.text += String.fromCharCode(key); 
+                        }
+
+                        if(justPressed && Light.Keyboard.SPACE === key){
+                                this.textbox.text += String.fromCharCode(key); 
+                        }
+                    }
+                    
+                    if(justPressed && Light.Keyboard.BACKSPACE === key){
+                        if(this.textbox.text.length !== 0){
+                            this.textbox.text=this.textbox.text.substr(0,this.textbox.text.length-1);
+                        }
+                    }
+                });
+            }
+        }
+    }
+    
     var game = new Light.Game('game', 1100, 600, '#282828', function (asset) {
+        asset.loadImage('button', 'image/button.png');
+        asset.loadImage('input', 'image/input.png');
+        
         testMap.loadAll(asset);
         asset.loadImage('e1', 'image/enemy1.png');
         asset.loadImage('e2', 'image/enemy2.png');
@@ -332,9 +417,78 @@
         asset.loadImage('backX','image/backX.jpg');
     });
 
+    var firstState = new Light.State(game);
     var introState = new Light.State(game);
     var gameState = new Light.State(game);
     var endState = new Light.State(game);
+
+    firstState.onInit = function () {
+        game.input.keyboard.keyCapturing = [
+        Light.Keyboard.A,
+        Light.Keyboard.B,
+        Light.Keyboard.C,
+        Light.Keyboard.D,
+        Light.Keyboard.E,
+        Light.Keyboard.F,
+        Light.Keyboard.G,
+        Light.Keyboard.H,
+        Light.Keyboard.I,
+        Light.Keyboard.J,
+        Light.Keyboard.K,
+        Light.Keyboard.L,
+        Light.Keyboard.M,
+        Light.Keyboard.N,
+        Light.Keyboard.O,
+        Light.Keyboard.P,
+        Light.Keyboard.Q,
+        Light.Keyboard.R,
+        Light.Keyboard.S,
+        Light.Keyboard.T,
+        Light.Keyboard.U,
+        Light.Keyboard.V,
+        Light.Keyboard.W,
+        Light.Keyboard.X,
+        Light.Keyboard.Y,
+        Light.Keyboard.Z,
+        Light.Keyboard.NUMBER_0,
+        Light.Keyboard.NUMBER_1,
+        Light.Keyboard.NUMBER_2,
+        Light.Keyboard.NUMBER_3,
+        Light.Keyboard.NUMBER_4,
+        Light.Keyboard.NUMBER_5,
+        Light.Keyboard.NUMBER_6,
+        Light.Keyboard.NUMBER_7,
+        Light.Keyboard.NUMBER_8,
+        Light.Keyboard.NUMBER_9,
+        Light.Keyboard.NUMPAD_0,
+        Light.Keyboard.NUMPAD_1,
+        Light.Keyboard.NUMPAD_2,
+        Light.Keyboard.NUMPAD_3,
+        Light.Keyboard.NUMPAD_4,
+        Light.Keyboard.NUMPAD_5,
+        Light.Keyboard.NUMPAD_6,
+        Light.Keyboard.NUMPAD_7,
+        Light.Keyboard.NUMPAD_8,
+        Light.Keyboard.NUMPAD_9,
+        Light.Keyboard.BACKSPACE,
+        Light.Keyboard.SPACE,
+        Light.Keyboard.SHIFT];
+        
+        display_text(this,"시작하려면 클릭",200,200,'#f00');
+        this.button = new Button(this,'button',200,400);    
+        this.inputbox = new Input(this,'input',manageP.my,300,400);
+    };
+    
+    firstState.onUpdate = function () {
+        let justPressed = game.input.mouse.isJustPressed(Light.Mouse.LEFT);
+        this.inputbox.check_focused(justPressed);
+        this.inputbox.check_keypressed();
+        
+        this.button.check_clicked(this,justPressed,function(){
+            socket.emit('change_nick',this.inputbox.textbox.text);
+            //game.states.change('intro');
+        });
+    };
 
     introState.onInit = function () {
         isStarted = false;
@@ -935,7 +1089,8 @@
         }
     };
 
+    game.states.add('first', firstState);
     game.states.add('intro', introState);
     game.states.add('mainGame', gameState);
     game.states.add('end', endState);
-    game.states.change('intro');
+    game.states.change('first');

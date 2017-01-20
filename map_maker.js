@@ -1,10 +1,11 @@
 var testingMap=
 `
-p1 220 200
-p2 350 200
-p3 220 200
-p4 220 200
+p1 270 180
+p2 450 180
+p3 520 180
+p4 650 180
 
+mini 0 0
 back 0 0
 fore 0 0
 b1 704 735
@@ -51,6 +52,7 @@ class MapMaker{
         this.blockNameXYs;
         this.background;
         this.foreground;
+        this.miniMap;
         this.myMaps;
         this.myXMarks=[];
         
@@ -196,6 +198,8 @@ class MapMaker{
                 
                 tmpMap.width  *= size;
                 tmpMap.height *= size;
+            }else if(block.name === 'mini'){
+                // 미니 맵은 따로
             }else{
                 tmpMap = make_rigid(state,`${block.name}`);
                 tmpMap.alpha = 0.5;
@@ -210,6 +214,7 @@ class MapMaker{
         }
         this.myMaps = tmpMaps;
     }
+    
     
     addForeground(game){
         let state = game.states.currentState;

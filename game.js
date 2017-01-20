@@ -144,7 +144,7 @@
         clearInterval(restart_interval);
         restart_interval = null;
         isStarted = false;
-        game.states.change('intro');
+        game.states.change('first');
     });
     
     socket.on('init_hp',(hps)=>{
@@ -350,7 +350,7 @@
                     let justPressed = game.input.keyboard.isJustPressed(key);
                     let pressed =game.input.keyboard.isPressed(key);
                     
-                    if(this.textbox.text.length <= 12){
+                    if(this.textbox.text.length <= 8){
                         if(justPressed && ('A'.charCodeAt(0) <= key &&  key <= 'Z'.charCodeAt(0))){
                             if(game.input.keyboard.isPressed(Light.Keyboard.SHIFT)){
                                 this.textbox.text += String.fromCharCode(key); 
@@ -382,8 +382,13 @@
     }
     
     var game = new Light.Game('game', 1100, 600, '#282828', function (asset) {
-        asset.loadImage('button', 'image/button.png');
-        asset.loadImage('input', 'image/input.png');
+        asset.loadImage('Main','mainscene/Main.png');
+        asset.loadImage('AD','mainscene/AD.png');
+        asset.loadImage('Start','mainscene/Start.png');
+        asset.loadImage('inputNickname','mainscene/inputNickname.png');
+        
+        asset.loadImage('greenDot','image/greenDot.png');
+        asset.loadImage('redDot','image/redDot.png');
         
         testMap.loadAll(asset);
         asset.loadImage('e1', 'image/enemy1.png');
@@ -414,7 +419,8 @@
         asset.loadImage('p1BackW2','image/p1/p1BackW2.png');
         asset.loadImage('p1LeftW','image/p1/p1LeftW.png');
         
-        asset.loadImage('backX','image/backX.jpg');
+        asset.loadImage('deadscene_main','image/deadscene_main.png');
+        asset.loadImage('find_TDM_main','image/find_TDM_main.png');
     });
 
     var firstState = new Light.State(game);
@@ -474,9 +480,10 @@
         Light.Keyboard.SPACE,
         Light.Keyboard.SHIFT];
         
-        display_text(this,"시작하려면 클릭",200,200,'#f00');
-        this.button = new Button(this,'button',200,400);    
-        this.inputbox = new Input(this,'input',manageP.my,300,400);
+        display_text(this,"Pang!!",400,150,'#fff',"140px Dosis");
+        this.button = new Button(this,'Start',600,450);    
+        this.inputbox = new Input(this,'inputNickname',manageP.my,200,450);
+        
     };
     
     firstState.onUpdate = function () {
@@ -498,9 +505,9 @@
         game.camera.children = [];
         manageP.nicks = [];
 
-        this.addChild(new Light.Sprite(game.asset.getImage('backX')));
-        display_text(this,"동팡 앗!",40,300,"#00f","100px Dosis");
-        display_text(this,"창을 두개 이상 띄우셈",40,400,"#fff","30px Dosis");
+        this.addChild(new Light.Sprite(game.asset.getImage('find_TDM_main')));
+//        display_text(this,"Wait!!",40,300,"#00f","100px Dosis");
+//        display_text(this,"조금만 기다려 주세요.",40,400,"#fff","30px Dosis");
 
         if(!start_interval){
             start_interval = setInterval(()=>{
@@ -682,11 +689,17 @@
                 player.hp = mine_hp;
             }
 
-//            if (player.hp <= 0) {
-//                player.hp = 0;
-//                game.camera.removeChild(player.hpText);
-//                game.states.change('end');
-//            }
+            if (player.hp <= 0) {
+                player.hp = 0;
+//                gameState.otherPs.forEach((p,inx)=>{
+//                    if(p.nick === player.nick)
+//                        gameState.otherPs.splice(inx,1);
+//                });
+//                gameState.unitLayer.children.forEach((ch,inx)=>{
+//                    if(ch.nick === player.nick)
+//                        gameState.unitLayer.children.splice(inx,1); 
+//                });
+            }
 
             else if (player.hp < 90) player.hpText.fillStyle = '#f00';
             else if (player.hp < 180) player.hpText.fillStyle = '#ffba00';
@@ -959,6 +972,29 @@
         };
     };
 
+//    class MiniMap extends Light.EntityContainer{
+//        constructor(imgSrc) {
+//            super();
+//            this.sprite = new Light.Sprite(imgSrc);
+//            this.addChild(this.sprite);
+//            this.greenDot = new Light.Sprite(game.asset.getImage('greenDot'));
+//            this.addChild(this.greenDot);
+//        }
+//        update_map(){
+//            let tmp_redDots = [];
+//            let player = gameState.player;
+//            this.greenDot.x = player.x * 3 / 2 * ((this.sprite.width - 115)/ (testMap.background.width));
+//            this.greenDot.y = player.y * 3 / 2 * ((this.sprite.height- 145)/ (testMap.background.height));
+////            manageP.getOthers().forEach((player,inx)=>{
+////                tmp_redDots.push(new Light.Sprite(game.asset.getImage('redDot')));
+////                tmp_redDots[inx].x = player.x * (this.sprite.width/ testMap.background.width);
+////                tmp_redDots[inx].y = player.y * (this.sprite.height/ testMap.background.height);
+////                this.addChild(tmp_redDots[inx]);
+////            });
+//        }
+//            
+//    }
+
     gameState.onInit = function () {
         game.input.keyboard.keyCapturing = [Light.Keyboard.A, Light.Keyboard.D, Light.Keyboard.W,Light.Keyboard.S, Light.Keyboard.CONTROL, Light.Keyboard.ALTERNATE, Light.Keyboard.ESCAPE,
                                             Light.Keyboard.UP,Light.Keyboard.RIGHT,Light.Keyboard.LEFT,Light.Keyboard.DOWN];
@@ -971,7 +1007,7 @@
         
         testMap.renderMap(game,3,500);
         this.grounds = testMap.myMaps;
-        //this.addChild(new Light.Sprite(game.asset.getImage('backX')));
+        //this.addChild(new Light.Sprite(game.asset.getImage('find_TDM_main')));
 
 //        this.grounds[0] = make_rigid(this,'g1',0,1100);
 //        this.grounds[1] = make_rigid(this,'g2',400,900);
@@ -993,12 +1029,16 @@
         
         testMap.addForeground(game);
         
+//        this.miniMap = new MiniMap(game.asset.getImage('mini'));
+//        game.camera.addChild(this.miniMap);
+        
         this.mousePointer = new Light.Sprite('image/mouse_pointer.png');
         this.addChild(this.mousePointer);
 
         this.pointerCenter = new Light.Sprite('image/pointer_center.png');
         this.pointerCenter.alpha=0;
         this.addChild(this.pointerCenter);
+        
         
         //카메라 처리
         game.camera.smoothFollow = 2;
@@ -1036,6 +1076,8 @@
     gameState.onUpdate = function (elapsed) {
         this.gameTime = Date.now();
         
+        //this.miniMap.update_map();
+        
         var localMousePos = game.camera.screenToLocal(game.input.mouse.position);
         this.mousePointer.x = (localMousePos.x-25);
         this.mousePointer.y = (localMousePos.y-25);
@@ -1045,7 +1087,6 @@
 
         let player = this.player;
         let otherPs = this.otherPs;
-        
 
         //내 player  처리
         player.faceMouse(game);
@@ -1076,15 +1117,20 @@
 
     let infoText;
     endState.onInit = function () {
-        game.backgroundColor = '#071e2e';
-        infoText = display_text(this,"Click to Restart",40,400,"#fff","30px Dosis");
+        if(restart_interval){
+            clearInterval(restart_interval);
+            restart_interval = null;
+            isStarted = false;
+        }
+        display_text(this,"Click to Restart!",120,400,"#fff","50px Dosis");
+        this.addChild(new Light.Sprite(game.asset.getImage('deadscene_main')));
         this.coolTime = 0;
     };
 
     endState.onUpdate = function (elapsed) {
         this.coolTime += elapsed;
         if (this.coolTime > 1 && game.input.mouse.isJustPressed(Light.Mouse.LEFT)){
-            game.states.change('intro');
+            game.states.change('first');
 
         }
     };

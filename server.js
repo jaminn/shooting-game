@@ -13,6 +13,11 @@ var ids=[];
 var nicks=[];
 var hps =[];
 
+var Rnicks=[];
+var Rids=[];
+var Rhps=[];
+
+
 var count = 1;
 
 var isStarted = false;
@@ -46,42 +51,49 @@ io.on('connection', function(socket){
     //console.log(io.sockets.adapter.rooms);
     
     socket.on('start_check',(debug)=>{
-        //console.log(debug);
-        if(!ids.includes(socket.id)){
-                ids.push(socket.id);
-                nicks.push(nickname);
-                hps.push(300);
-            
-                console.log(nicks);
-                io.sockets.in('death match').emit('start',nicks);
-                io.sockets.in('death match').emit('init_hp',hps);
-        }
-        
+        //console.log(debug);        
         if(!isStarted){
-            if(ids.length >= 2){
+            if(Rids.length >= 2){
                 console.log('시작');
-                socket.join('death match');
                 console.log(nicks);
-                socket.emit('start',nicks);
-                socket.emit('init_hp',hps);
+                socket.emit('start',Rnicks);
+                socket.emit('init_hp',Rhps);
                 isStarted = true;
             }
         }else{
-            socket.join('death match');
-            io.sockets.in('death match').emit('start',nicks);
-            io.sockets.in('death match').emit('init_hp',hps);
+            
+            if(!Rids.includes(socket.id)){
+                Rids.push(socket.id);
+                Rnicks.push(nickname);
+                Rhps.push(300);
+            
+                console.log(Rnicks);
+                io.sockets.in('death match').emit('start',Rnicks);
+                io.sockets.in('death match').emit('init_hp',Rhps);
+            }else{
+                io.sockets.in('death match').emit('start',Rnicks);
+                io.sockets.in('death match').emit('init_hp',Rhps);    
+            }   
         }
     });
     
     socket.on('change_nick',(nick)=>{
         console.log(nick);
         console.log(nicks);
-        console.log(nicks.indexOf(nick));
-        if(nicks.indexOf(nick) !== -1){
+        console.log(ids.indexOf(socket.id));
+        
+        if(nicks.indexOf(nick) !== -1 && nick !== nicks[ids.indexOf(socket.id)] ){//같아도 통과
             socket.emit('invalid_nick','이미 존재 합니다.');
         }else{
             socket.emit('valid_nick',nick);
             nicks.splice(ids.indexOf(socket.id),1,nick);
+            socket.join('death match');
+            
+            if(!Rids.includes(socket.id)){
+                Rids.push(socket.id);
+                Rnicks.push(nick);
+                Rhps.push(300);   
+            }
         }
             
     });
@@ -90,7 +102,7 @@ io.on('connection', function(socket){
     socket.on('restart_check',(debug)=>{
         //socket.leave('death match');
         //console.log(debug);     
-        if(ids.length < 2){
+        if(Rids.length < 2){
             console.log('restart|ONrestart_check');
             socket.emit('restart','restart:ONrestart_check');
             isStarted = false;
@@ -98,10 +110,11 @@ io.on('connection', function(socket){
     });
     
     socket.on('die_check', (debug)=> {
-        hps.splice(ids.indexOf(socket.id),1);
-        nicks.splice(ids.indexOf(socket.id),1);
-        ids.splice(ids.indexOf(socket.id),1);
-        io.sockets.in('death match').emit('start',nicks);
+        console.log(debug);
+        Rhps.splice(Rids.indexOf(socket.id),1);
+        Rnicks.splice(Rids.indexOf(socket.id),1);
+        Rids.splice(Rids.indexOf(socket.id),1);
+        socket.in('death match').emit('start',Rnicks);
         socket.leave('death match');
     });
     
@@ -118,6 +131,7 @@ io.on('connection', function(socket){
 //        console.log(mine);
 //        console.log('END|pass_mine');
         hps[nicks.indexOf(hpNick.nick)] = hpNick.hp;
+        Rhps[Rnicks.indexOf(hpNick.nick)] = hpNick.hp;
         //console.log(hps);
         socket.in('death match').emit('get_my_hpNick', hpNick);
     });
@@ -131,9 +145,15 @@ io.on('connection', function(socket){
     
 
     socket.on('disconnect', function() {
+        
         hps.splice(ids.indexOf(socket.id),1);
         nicks.splice(ids.indexOf(socket.id),1);
         ids.splice(ids.indexOf(socket.id),1);
+        
+        Rhps.splice(Rids.indexOf(socket.id),1);
+        Rnicks.splice(Rids.indexOf(socket.id),1);
+        Rids.splice(Rids.indexOf(socket.id),1);
+        socket.leave('death match');
         
         io.sockets.in('death match').emit('start',nicks);
         

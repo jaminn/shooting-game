@@ -11,6 +11,8 @@ app.get('/', function(req, res){
 
 var ids=[];
 var nicks=[];
+var hps =[];
+
 var count = 1;
 
 var isStarted = false;
@@ -26,6 +28,8 @@ io.on('connection', function(socket){
     let nickname = "P" + (count++);
     ids.push(socket.id);
     nicks.push(nickname);
+    hps.push(300);
+    
     socket.emit("get_nickname",nickname);
     
     
@@ -39,24 +43,29 @@ io.on('connection', function(socket){
     
     socket.on('start_check',(debug)=>{
         //console.log(debug);
+        if(!ids.includes(socket.id)){
+                ids.push(socket.id);
+                nicks.push(nickname);
+                hps.push(300);
+            
+                console.log(nicks);
+                io.sockets.in('death match').emit('start',nicks);
+                io.sockets.in('death match').emit('init_hp',hps);
+        }
+        
         if(!isStarted){
             if(ids.length >= 2){
                 console.log('시작');
                 socket.join('death match');
                 console.log(nicks);
                 socket.emit('start',nicks);
+                socket.emit('init_hp',hps);
                 isStarted = true;
             }
         }else{
             socket.join('death match');
-            if(ids.includes(socket.id)){
-                io.sockets.in('death match').emit('start',nicks);   
-            }else{
-                ids.push(socket.id);
-                nicks.push(nickname);
-                console.log(nicks);
-                io.sockets.in('death match').emit('start',nicks);
-            }
+            io.sockets.in('death match').emit('start',nicks);
+            io.sockets.in('death match').emit('init_hp',hps);
         }
     });
     
@@ -71,6 +80,7 @@ io.on('connection', function(socket){
     });
     
     socket.on('die_check', (debug)=> {
+        hps.splice(ids.indexOf(socket.id),1);
         nicks.splice(ids.indexOf(socket.id),1);
         ids.splice(ids.indexOf(socket.id),1);
         io.sockets.in('death match').emit('start',nicks);
@@ -89,6 +99,8 @@ io.on('connection', function(socket){
 //        console.log('START|pass_mine');
 //        console.log(mine);
 //        console.log('END|pass_mine');
+        hps[nicks.indexOf(hpNick.nick)] = hpNick.hp;
+        console.log(hps);
         socket.in('death match').emit('get_my_hpNick', hpNick);
     });
     
@@ -101,8 +113,10 @@ io.on('connection', function(socket){
     
 
     socket.on('disconnect', function() {
+        hps.splice(ids.indexOf(socket.id),1);
         nicks.splice(ids.indexOf(socket.id),1);
         ids.splice(ids.indexOf(socket.id),1);
+        
         io.sockets.in('death match').emit('start',nicks);
         
         console.log("__Exit__");

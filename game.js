@@ -135,7 +135,12 @@
         isStarted = false;
         game.states.change('intro');
     });
-
+    
+    socket.on('init_hp',(hps)=>{
+        gameState.unitLayer.children.forEach((P,inx)=>{
+            P.mine_hp=hps[manageP.nicks.indexOf(P.nick)];
+        });
+    })
 
     socket.on('get_his', (data) =>{
     //        console.log('START|ONget_his');
